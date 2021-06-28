@@ -33,7 +33,7 @@ namespace JsonBinMin.Tests
 			Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
 			Directory.CreateDirectory("Compressed");
 			File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
-			var roundtrip = JsonBinMin.Decompress(compressed);
+			var roundtrip = JsonBinMin.DecompressToString(compressed);
 
 			AssertStructuralEqual(json, roundtrip, JsonBinMinOptions.Default);
 		}

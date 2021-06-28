@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -11,13 +10,20 @@ using System.Text.Json;
 
 namespace JsonBinMin
 {
-	public class CompressCtx
+	internal class CompressCtx
 	{
 		private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
-		public JsonBinMinOptions Options { get; init; } = JsonBinMinOptions.Default;
-		public MemoryStream mem = new();
-		public MemoryStream Output { get; set; } = new();
-		public Dictionary<(string, DictElemKind), DictEntry> Dict { get; set; } = new();
+		public readonly JsonBinMinOptions options;
+		public readonly MemoryStream output = new();
+		public readonly Dictionary<(string, DictElemKind), DictEntry> dict;
+
+		public CompressCtx(JsonBinMinOptions options, DictBuilder dictBuilder)
+		{
+			this.options = options;
+			dictBuilder.FinalizeDictionary();
+			this.dict = dictBuilder.Dict ?? throw new ArgumentNullException(nameof(dictBuilder));
+			output.Write(dictBuilder.DictSerialized);
+		}
 
 		public void WriteValue(JsonElement elem)
 		{
@@ -36,11 +42,11 @@ namespace JsonBinMin
 
 					if (objElemems.Length < 0xF)
 					{
-						Output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
+						output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
 					}
 					else
 					{
-						Output.WriteByte((byte)JBMType.ObjectExt);
+						output.WriteByte((byte)JBMType.ObjectExt);
 						WriteNumberValue(objElemems.Length.ToString(CultureInfo.InvariantCulture));
 					}
 
@@ -56,11 +62,11 @@ namespace JsonBinMin
 
 					if (arrElemems.Length < 0xF)
 					{
-						Output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
+						output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
 					}
 					else
 					{
-						Output.WriteByte((byte)JBMType.ArrayExt);
+						output.WriteByte((byte)JBMType.ArrayExt);
 						WriteNumberValue(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
 					}
 
@@ -79,11 +85,11 @@ namespace JsonBinMin
 					break;
 
 				case JsonValueKind.True:
-					Output.WriteByte((byte)JBMType.True);
+					output.WriteByte((byte)JBMType.True);
 					break;
 
 				case JsonValueKind.False:
-					Output.WriteByte((byte)JBMType.False);
+					output.WriteByte((byte)JBMType.False);
 					break;
 
 				case JsonValueKind.Null:
@@ -111,7 +117,7 @@ namespace JsonBinMin
 			if (TryWriteStringFromDict(str))
 				return;
 
-			WriteStringValue(str, Output, Options);
+			WriteStringValue(str, output, options);
 		}
 
 		public static void WriteStringValue(string str, Stream output, JsonBinMinOptions options)
@@ -132,9 +138,9 @@ namespace JsonBinMin
 
 		public bool TryWriteStringFromDict(string str)
 		{
-			if (!Options.UseDict || !Dict.TryGetValue((str, DictElemKind.String), out var entry))
+			if (!options.UseDict || !dict.TryGetValue((str, DictElemKind.String), out var entry))
 				return false;
-			Output.WriteByte((byte)(0x80 | entry.Index));
+			output.WriteByte((byte)(0x80 | entry.Index));
 			return true;
 		}
 
@@ -143,7 +149,7 @@ namespace JsonBinMin
 			if (TryWriteNumberFromDict(num))
 				return;
 
-			WriteNumberValue(num, Output, Options);
+			WriteNumberValue(num, output, options);
 		}
 
 		public static void WriteNumberValue(string numRaw, Stream output, JsonBinMinOptions options)
@@ -258,9 +264,9 @@ namespace JsonBinMin
 
 		public bool TryWriteNumberFromDict(string num)
 		{
-			if (!Options.UseDict || !Dict.TryGetValue((num, DictElemKind.Number), out var entry))
+			if (!options.UseDict || !dict.TryGetValue((num, DictElemKind.Number), out var entry))
 				return false;
-			Output.WriteByte((byte)(0x80 | entry.Index));
+			output.WriteByte((byte)(0x80 | entry.Index));
 			return true;
 		}
 
@@ -356,126 +362,6 @@ namespace JsonBinMin
 			return buf;
 		}
 
-		public void WriteNull() => Output.WriteByte((byte)JBMType.Null);
-
-		// Dictionary
-
-		public void BuildDictionary(JsonElement elem)
-		{
-			switch (elem.ValueKind)
-			{
-				case JsonValueKind.Object:
-					var objElemems = elem.EnumerateObject().ToArray();
-
-					AddNumberToDict(objElemems.Length.ToString(CultureInfo.InvariantCulture));
-
-					foreach (var kvp in objElemems)
-					{
-						AddStringToDict(kvp.Name);
-						BuildDictionary(kvp.Value);
-					}
-					break;
-
-				case JsonValueKind.Array:
-					var arrElemems = elem.EnumerateArray().ToArray();
-
-					AddNumberToDict(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
-
-					foreach (var arrItem in arrElemems)
-					{
-						BuildDictionary(arrItem);
-					}
-					break;
-
-				case JsonValueKind.String:
-					AddStringToDict(elem.GetString());
-					break;
-
-				case JsonValueKind.Number:
-					AddNumberToDict(elem.GetRawText());
-					break;
-
-				default:
-					break;
-			}
-		}
-
-		public void AddNumberToDict(string num)
-		{
-			if (byte.TryParse(num, out var byteValue) && byteValue is >= 0 and <= 0x1F)
-				return;
-
-			mem.SetLength(0);
-			WriteNumberValue(num, mem, Options);
-			mem.Position = 0;
-			var binary = mem.ToArray();
-
-			if (!Dict.TryGetValue((num, DictElemKind.Number), out var de))
-				Dict[(num, DictElemKind.Number)] = de = new DictEntry(binary);
-			de.Count++;
-		}
-
-		public void AddStringToDict(string? str)
-		{
-			if (string.IsNullOrEmpty(str)) return;
-
-			AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
-
-			mem.SetLength(0);
-			WriteStringValue(str, mem, Options);
-			mem.Position = 0;
-			var binary = mem.ToArray();
-
-			if (!Dict.TryGetValue((str, DictElemKind.String), out var de))
-				Dict[(str, DictElemKind.String)] = de = new DictEntry(binary);
-			de.Count++;
-		}
-
-		public void WriteDictionary()
-		{
-			if (Dict.Values.All(x => x.Count <= 1))
-			{
-				Dict.Clear();
-				return;
-			}
-
-			var dictValues = Dict
-				.Where(x => x.Value.Count > 1)
-				.OrderByDescending(x => x.Value.Count * x.Value.Data.Length)
-				.Take(0x7F)
-				.OrderBy(x => x.Key.Item2)
-				.ToArray();
-			Dict.Clear();
-
-			Output.WriteByte((byte)JBMType.MetaDictDef);
-			WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), Output, Options);
-
-			for (int i = 0; i < dictValues.Length; i++)
-			{
-				var (k, v) = dictValues[i];
-				v.Index = i;
-				Dict.Add(k, v);
-				Output.Write(v.Data);
-			}
-		}
-
-		public enum DictElemKind
-		{
-			Number, // Do not move! Number needs to lower than other values
-			String,
-		}
-
-		[DebuggerDisplay("{Count, nq} @{Index, nq}")]
-		public class DictEntry
-		{
-			public byte[] Data { get; set; }
-			public int Count { get; set; } = 0;
-			public int Index { get; set; } = 0;
-
-			public DictEntry(byte[] data)
-			{
-				Data = data;
-			}
-		}
+		public void WriteNull() => output.WriteByte((byte)JBMType.Null);
 	}
 }
