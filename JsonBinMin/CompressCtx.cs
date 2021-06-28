@@ -34,7 +34,7 @@ namespace JsonBinMin
 				case JsonValueKind.Object:
 					var objElemems = elem.EnumerateObject().ToArray();
 
-					if (objElemems.Length < 15)
+					if (objElemems.Length < 0xF)
 					{
 						Output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
 					}
@@ -54,7 +54,7 @@ namespace JsonBinMin
 				case JsonValueKind.Array:
 					var arrElemems = elem.EnumerateArray().ToArray();
 
-					if (arrElemems.Length < 15)
+					if (arrElemems.Length < 0xF)
 					{
 						Output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
 					}
@@ -116,7 +116,7 @@ namespace JsonBinMin
 
 		public static void WriteStringValue(string str, Stream output, JsonBinMinOptions options)
 		{
-			if (str.Length < 15)
+			if (str.Length < 0xF)
 			{
 				output.WriteByte((byte)((byte)JBMType.String | str.Length));
 			}
@@ -152,26 +152,47 @@ namespace JsonBinMin
 			var numNeg = num.StartsWith("-");
 			var posNum = numNeg ? num[1..] : num;
 
-			if (byte.TryParse(posNum, out var byteVal))
+			if (ulong.TryParse(posNum, out var integerVal))
 			{
-				if (!numNeg && byteVal is >= 0x0 and <= 0xF)
+				switch (integerVal)
 				{
-					output.WriteByte((byte)((byte)JBMType.IntInline | byteVal));
+					case <= 0x1F when !numNeg:
+						output.WriteByte((byte)((byte)JBMType.IntInline | integerVal));
+						return;
+					case <= byte.MaxValue:
+						{
+							Span<byte> buf = stackalloc byte[2] { FlagType(JBMType.Int8, numNeg), (byte)integerVal };
+							output.Write(buf);
+							return;
+						}
+					case <= ushort.MaxValue:
+						{
+							Span<byte> buf = stackalloc byte[3];
+							buf[0] = FlagType(JBMType.Int16, numNeg);
+							BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)integerVal);
+							output.Write(buf);
+							return;
+						}
+					case <= uint.MaxValue:
+						{
+							Span<byte> buf = stackalloc byte[5];
+							buf[0] = FlagType(JBMType.Int32, numNeg);
+							BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)integerVal);
+							output.Write(buf);
+							return;
+						}
+					case <= ulong.MaxValue:
+						{
+							Span<byte> buf = stackalloc byte[9];
+							buf[0] = FlagType(JBMType.Int64, numNeg);
+							BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], (ulong)integerVal);
+							output.Write(buf);
+							return;
+						}
+
+					default:
+						throw new InvalidOperationException();
 				}
-				else
-				{
-					Span<byte> buf = stackalloc byte[2] { FlagType(JBMType.Int8, numNeg), byteVal };
-					output.Write(buf);
-				}
-				return;
-			}
-			if (ushort.TryParse(posNum, out var shortVal))
-			{
-				Span<byte> buf = stackalloc byte[3];
-				buf[0] = FlagType(JBMType.Int16, numNeg);
-				BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], shortVal);
-				output.Write(buf);
-				return;
 			}
 
 			var rle = TryGetNumRle(posNum);
@@ -179,22 +200,6 @@ namespace JsonBinMin
 			var numStr = GetNumStr(num);
 			var numStrLen = numStr.Length;
 
-			if (uint.TryParse(posNum, out var intVal) && rleLen >= 5 && numStrLen >= 5)
-			{
-				Span<byte> buf = stackalloc byte[5];
-				buf[0] = FlagType(JBMType.Int32, numNeg);
-				BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], intVal);
-				output.Write(buf);
-				return;
-			}
-			if (ulong.TryParse(posNum, out var ulongVal) && rleLen >= 9 && numStrLen >= 9)
-			{
-				Span<byte> buf = stackalloc byte[9];
-				buf[0] = FlagType(JBMType.Int64, numNeg);
-				BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], ulongVal);
-				output.Write(buf);
-				return;
-			}
 			if (rle != null) // number is an integer
 			{
 				if (rleLen < numStrLen)
@@ -362,8 +367,7 @@ namespace JsonBinMin
 				case JsonValueKind.Object:
 					var objElemems = elem.EnumerateObject().ToArray();
 
-					if (objElemems.Length >= 15)
-						AddNumberToDict(objElemems.Length.ToString(CultureInfo.InvariantCulture));
+					AddNumberToDict(objElemems.Length.ToString(CultureInfo.InvariantCulture));
 
 					foreach (var kvp in objElemems)
 					{
@@ -375,8 +379,7 @@ namespace JsonBinMin
 				case JsonValueKind.Array:
 					var arrElemems = elem.EnumerateArray().ToArray();
 
-					if (arrElemems.Length >= 15)
-						AddNumberToDict(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
+					AddNumberToDict(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
 
 					foreach (var arrItem in arrElemems)
 					{
@@ -399,7 +402,7 @@ namespace JsonBinMin
 
 		public void AddNumberToDict(string num)
 		{
-			if (byte.TryParse(num, out var byteValue) && byteValue is >= 0 and < 15)
+			if (byte.TryParse(num, out var byteValue) && byteValue is >= 0 and <= 0x1F)
 				return;
 
 			mem.SetLength(0);
@@ -416,8 +419,7 @@ namespace JsonBinMin
 		{
 			if (string.IsNullOrEmpty(str)) return;
 
-			if (str.Length >= 15)
-				AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
+			AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
 
 			mem.SetLength(0);
 			WriteStringValue(str, mem, Options);

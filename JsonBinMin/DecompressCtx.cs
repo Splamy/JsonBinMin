@@ -23,7 +23,13 @@ namespace JsonBinMin
 				return false;
 			}
 
-			switch ((JBMType)(pick & 0b0_111_0000))
+			if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
+			{
+				Output.Append(ReadNumber(data, out rest));
+				return false;
+			}
+
+			switch ((JBMType)(pick & 0b1_111_0000))
 			{
 				case JBMType.Object:
 					var objElemCount = int.Parse(ReadNumber(data, out data), NumberStyles.Integer, CultureInfo.InvariantCulture);
@@ -55,8 +61,8 @@ namespace JsonBinMin
 					Output.Append(ReadString(data, out rest));
 					break;
 
-				case JBMType._Constants:
-					switch ((JBMType)(pick & 0b0_111_1111))
+				case JBMType._Block101:
+					switch ((JBMType)pick)
 					{
 						case JBMType.False:
 							Output.Append("false");
@@ -71,6 +77,12 @@ namespace JsonBinMin
 						case JBMType.Null:
 							Output.Append("null");
 							rest = data[1..];
+							break;
+
+						case JBMType.Float16:
+						case JBMType.Float32:
+						case JBMType.Float64:
+							Output.Append(ReadNumber(data, out rest));
 							break;
 
 						case JBMType.MetaDictDef:
@@ -94,8 +106,7 @@ namespace JsonBinMin
 					}
 					break;
 
-				case JBMType.IntInline:
-				case JBMType._NumSized:
+				case JBMType._Block110:
 				case JBMType.NumStr:
 					Output.Append(ReadNumber(data, out rest));
 					break;
@@ -110,62 +121,26 @@ namespace JsonBinMin
 		public string ReadNumber(Span<byte> data, out Span<byte> rest)
 		{
 			var pick = (byte)(data[0] & 0b0_111_1111);
-			var numPick = (JBMType)(pick & 0b0_111_0000);
 
-			switch (numPick)
+			if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
+			{
+				var hVal = (data[0] & 0x1F);
+				rest = data[1..];
+				return hVal.ToString(CultureInfo.InvariantCulture);
+			}
+
+			switch ((JBMType)(pick & 0b1_111_0000))
 			{
 				case JBMType.Object:
 				case JBMType.Array:
 				case JBMType.String:
-				case JBMType.IntInline:
 					var hVal = (data[0] & 0xF);
-					if (hVal < 15 || numPick == JBMType.IntInline)
+					if (hVal < 15)
 					{
 						rest = data[1..];
 						return hVal.ToString(CultureInfo.InvariantCulture);
 					}
 					return ReadNumber(data[1..], out rest);
-
-				case JBMType._NumSized:
-					static string FlagStr(string s, byte i) => (i & 1) == 0 ? s : "-" + s;
-
-					switch ((JBMType)(pick & 0b0_111_111_0))
-					{
-						case JBMType.Int8:
-							rest = data[2..];
-							return FlagStr(data[1].ToString(CultureInfo.InvariantCulture), pick);
-						case JBMType.Int16:
-							rest = data[3..];
-							return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-						case JBMType.Int32:
-							rest = data[5..];
-							return FlagStr(BinaryPrimitives.ReadUInt32LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-						case JBMType.Int64:
-							rest = data[9..];
-							return FlagStr(BinaryPrimitives.ReadUInt64LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-						case JBMType.IntRle:
-							// [0XXX_XXXX] 1 byte
-							// [1XXX_XXXX] [0XXX_XXXX] 2 byte ...
-							int rleOff = 1;
-							var intAcc = new BigInteger();
-							do
-							{
-								intAcc <<= 7;
-								intAcc |= data[rleOff] & 0b0111_1111;
-							} while ((data[rleOff++] & 0x80) != 0);
-							rest = data[rleOff..];
-							return FlagStr(intAcc.ToString(CultureInfo.InvariantCulture), pick);
-
-						case JBMType.Float32:
-							rest = data[5..];
-							return BitConverter.ToSingle(data[1..]).ToString(CultureInfo.InvariantCulture);
-						case JBMType.Float64:
-							rest = data[9..];
-							return BitConverter.ToDouble(data[1..]).ToString(CultureInfo.InvariantCulture);
-
-						default:
-							throw new InvalidOperationException();
-					}
 
 				case JBMType.NumStr:
 					int nsOff = 1;
@@ -197,18 +172,69 @@ namespace JsonBinMin
 					}
 					rest = data[nsOff..];
 					return strb.ToString();
-
-				default:
-					throw new InvalidOperationException();
 			}
+
+			switch ((JBMType)pick)
+			{
+				case JBMType.Float16:
+					rest = data[3..];
+					throw new NotImplementedException();
+				case JBMType.Float32:
+					rest = data[5..];
+					return BitConverter.ToSingle(data[1..]).ToString(CultureInfo.InvariantCulture);
+				case JBMType.Float64:
+					rest = data[9..];
+					return BitConverter.ToDouble(data[1..]).ToString(CultureInfo.InvariantCulture);
+			}
+
+			switch ((JBMType)(pick & 0b1_111_111_0))
+			{
+				case JBMType.Int8:
+					rest = data[2..];
+					return FlagStr(data[1].ToString(CultureInfo.InvariantCulture), pick);
+				case JBMType.Int16:
+					rest = data[3..];
+					return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
+				case JBMType.Int24:
+					rest = data[4..];
+					// TD return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
+					throw new NotImplementedException();
+				case JBMType.Int32:
+					rest = data[5..];
+					return FlagStr(BinaryPrimitives.ReadUInt32LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
+				case JBMType.Int48:
+					rest = data[7..];
+					// TD return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
+					throw new NotImplementedException();
+				case JBMType.Int64:
+					rest = data[9..];
+					return FlagStr(BinaryPrimitives.ReadUInt64LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
+				case JBMType.IntRle:
+					// [0XXX_XXXX] 1 byte
+					// [1XXX_XXXX] [0XXX_XXXX] 2 byte ...
+					int rleOff = 1;
+					var intAcc = new BigInteger();
+					do
+					{
+						intAcc <<= 7;
+						intAcc |= data[rleOff] & 0b0111_1111;
+					} while ((data[rleOff++] & 0x80) != 0);
+					rest = data[rleOff..];
+					return FlagStr(intAcc.ToString(CultureInfo.InvariantCulture), pick);
+			}
+
+			throw new InvalidOperationException();
 		}
+
+		private static string FlagStr(string s, byte i) => (i & 1) == 0 ? s : "-" + s;
 
 		// reads without PickByte
 		public string ReadString(Span<byte> data, out Span<byte> rest)
 		{
 			var numStr = ReadNumber(data, out data);
 			var strLen = int.Parse(numStr, NumberStyles.Integer, CultureInfo.InvariantCulture);
-			var str = '"' + JsonEncodedText.Encode(Encoding.UTF8.GetString(data[..strLen])).ToString() + '"';
+			var readStr = Encoding.UTF8.GetString(data[..strLen]);
+			var str = '"' + JsonEncodedText.Encode(readStr).ToString() + '"';
 			rest = data[strLen..];
 			return str;
 		}
