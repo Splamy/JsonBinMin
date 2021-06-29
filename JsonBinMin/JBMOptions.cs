@@ -1,4 +1,6 @@
-﻿namespace JsonBinMin
+﻿using System;
+
+namespace JsonBinMin
 {
 	public class JBMOptions
 	{
@@ -12,6 +14,15 @@
 
 		public bool UseDict { get; init; } = true;
 
-		public bool UseHalfType { get; init; } = false;
+		public UseFloats UseFloats { get; init; } = UseFloats.Single | UseFloats.Double;
+	}
+
+	[Flags]
+	public enum UseFloats
+	{
+		None = 0,
+		Half = 1 << 0,
+		Single = 1 << 1,
+		Double = 1 << 2,
 	}
 }

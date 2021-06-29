@@ -233,7 +233,7 @@ namespace JsonBinMin
 			if (tail0) num = num[..^2];
 
 #if NET5_0_OR_GREATER
-			if (options.UseHalfType &&
+			if (options.UseFloats.HasFlag(UseFloats.Half) &&
 				Half.TryParse(num,
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
@@ -248,7 +248,8 @@ namespace JsonBinMin
 				return;
 			}
 #endif
-			if (float.TryParse(num,
+			if (options.UseFloats.HasFlag(UseFloats.Single) &&
+				float.TryParse(num,
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var floatVal)
@@ -262,7 +263,8 @@ namespace JsonBinMin
 				return;
 			}
 
-			if (double.TryParse(num,
+			if (options.UseFloats.HasFlag(UseFloats.Double) &&
+				double.TryParse(num,
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var doubleVal)
