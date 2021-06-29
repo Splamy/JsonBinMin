@@ -12,11 +12,11 @@ namespace JsonBinMin
 	{
 		private readonly MemoryStream mem = new();
 		private readonly Dictionary<(string, DictElemKind), DictEntry> buildDict = new();
-		private readonly JsonBinMinOptions options;
+		private readonly JBMOptions options;
 
 		public bool IsFinalized => Dict != null;
 
-		public DictBuilder(JsonBinMinOptions options)
+		public DictBuilder(JBMOptions options)
 		{
 			this.options = options;
 		}
@@ -73,7 +73,6 @@ namespace JsonBinMin
 
 			mem.SetLength(0);
 			CompressCtx.WriteNumberValue(num, mem, options);
-			mem.Position = 0;
 			var binary = mem.ToArray();
 
 			if (!buildDict.TryGetValue((num, DictElemKind.Number), out var de))
@@ -89,7 +88,6 @@ namespace JsonBinMin
 
 			mem.SetLength(0);
 			CompressCtx.WriteStringValue(str, mem, options);
-			mem.Position = 0;
 			var binary = mem.ToArray();
 
 			if (!buildDict.TryGetValue((str, DictElemKind.String), out var de))
@@ -134,7 +132,6 @@ namespace JsonBinMin
 				Dict.Add(k, v);
 				mem.Write(v.Data);
 			}
-			mem.Position = 0;
 
 			DictSerialized = mem.ToArray();
 		}

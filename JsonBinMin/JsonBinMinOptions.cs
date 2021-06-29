@@ -1,8 +1,8 @@
 ﻿namespace JsonBinMin
 {
-	public class JsonBinMinOptions
+	public class JBMOptions
 	{
-		public static readonly JsonBinMinOptions Default = new();
+		public static readonly JBMOptions Default = new();
 
 		// <1.0000> == <1.0>
 		//public bool AllowSemanticallyEquivalentOpt { get; init; } = false;

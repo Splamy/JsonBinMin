@@ -1,132 +1,138 @@
 ﻿using System;
 using System.Buffers.Binary;
+using System.Buffers.Text;
 using System.Globalization;
+using System.IO;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
 
 namespace JsonBinMin
 {
-	public class DecompressCtx
+	internal class DecompressCtx
 	{
-		public JsonBinMinOptions Options { get; } = JsonBinMinOptions.Default;
-		public StringBuilder Output { get; set; } = new();
-		public string[] Dict { get; set; } = Array.Empty<string>();
+		public JBMOptions Options { get; } = JBMOptions.Default;
+		public MemoryStream Output { get; set; } = new();
+		public byte[][] Dict { get; set; } = Array.Empty<byte[]>();
+		private readonly MemoryStream mem = new();
 
-		public bool Parse(Span<byte> data, out Span<byte> rest)
+		public bool Parse(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 		{
 			var pick = data[0];
 			if ((pick & 0x80) != 0)
 			{
-				Output.Append(Dict[pick & 0x7F]);
+				Output.Write(Dict[pick & 0x7F]);
 				rest = data[1..];
 				return false;
 			}
 
 			if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
 			{
-				Output.Append(ReadNumber(data, out rest));
+				ReadNumber(Output, data, out rest);
 				return false;
 			}
 
 			switch ((JBMType)(pick & 0b1_111_0000))
 			{
 				case JBMType.Object:
-					var objElemCount = int.Parse(ReadNumber(data, out data), NumberStyles.Integer, CultureInfo.InvariantCulture);
-					Output.Append('{');
+					var objElemCount = ReadNumberToInt(data, out data);
+					Output.WriteByte((byte)'{');
 					for (int i = 0; i < objElemCount; i++)
 					{
 						Parse(data, out data);
-						Output.Append(':');
+						Output.WriteByte((byte)':');
 						Parse(data, out data);
-						if (i < objElemCount - 1) Output.Append(',');
+						if (i < objElemCount - 1) Output.WriteByte((byte)',');
 					}
-					Output.Append('}');
+					Output.WriteByte((byte)'}');
 					rest = data;
 					break;
 
 				case JBMType.Array:
-					var arrElemCount = int.Parse(ReadNumber(data, out data), NumberStyles.Integer, CultureInfo.InvariantCulture);
-					Output.Append('[');
+					var arrElemCount = ReadNumberToInt(data, out data);
+					Output.WriteByte((byte)'[');
 					for (int i = 0; i < arrElemCount; i++)
 					{
 						Parse(data, out data);
-						if (i < arrElemCount - 1) Output.Append(',');
+						if (i < arrElemCount - 1) Output.WriteByte((byte)',');
 					}
-					Output.Append(']');
+					Output.WriteByte((byte)']');
 					rest = data;
 					break;
 
 				case JBMType.String:
-					Output.Append(ReadString(data, out rest));
+					ReadString(Output, data, out rest);
 					break;
 
 				case JBMType._Block101:
 					switch ((JBMType)pick)
 					{
 						case JBMType.False:
-							Output.Append("false");
+							Output.Write(Constants.False);
 							rest = data[1..];
 							break;
 
 						case JBMType.True:
-							Output.Append("true");
+							Output.Write(Constants.True);
 							rest = data[1..];
 							break;
 
 						case JBMType.Null:
-							Output.Append("null");
+							Output.Write(Constants.Null);
 							rest = data[1..];
 							break;
 
 						case JBMType.Float16:
 						case JBMType.Float32:
 						case JBMType.Float64:
-							Output.Append(ReadNumber(data, out rest));
+							ReadNumber(Output, data, out rest);
 							break;
 
 						case JBMType.MetaDictDef:
-							var dictSize = byte.Parse(ReadNumber(data[1..], out data), NumberStyles.Integer, CultureInfo.InvariantCulture);
-							Dict = new string[dictSize];
+							var dictSize = ReadNumberToInt(data[1..], out data);
+							Dict = new byte[dictSize][];
 							var dictCtx = new DecompressCtx
 							{
 								Dict = Dict // allow in-self referential dict entries
 							};
 							for (int i = 0; i < dictSize; i++)
 							{
-								dictCtx.Output.Clear();
+								dictCtx.Output.SetLength(0);
 								dictCtx.Parse(data, out data);
-								Dict[i] = dictCtx.Output.ToString();
+								Dict[i] = dictCtx.Output.ToArray();
 							}
 							rest = data;
 							return true;
 
 						default:
-							throw new InvalidOperationException();
+							throw new InvalidDataException();
 					}
 					break;
 
 				case JBMType._Block110:
 				case JBMType.NumStr:
-					Output.Append(ReadNumber(data, out rest));
+					ReadNumber(Output, data, out rest);
 					break;
 
 				default:
-					throw new InvalidOperationException();
+					throw new InvalidDataException();
 			}
 			return false;
 		}
 
 		// reads with PickByte
-		public string ReadNumber(Span<byte> data, out Span<byte> rest)
+		public static void ReadNumber(Stream output, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 		{
-			var pick = (byte)(data[0] & 0b0_111_1111);
+			var pick = data[0];
 
 			if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
 			{
 				var hVal = (data[0] & 0x1F);
 				rest = data[1..];
-				return hVal.ToString(CultureInfo.InvariantCulture);
+				Span<byte> buf = stackalloc byte[2];
+				Util.Assert(Utf8Formatter.TryFormat(hVal, buf, out var written));
+				output.Write(buf[..written]);
+				return;
 			}
 
 			switch ((JBMType)(pick & 0b1_111_0000))
@@ -135,43 +141,47 @@ namespace JsonBinMin
 				case JBMType.Array:
 				case JBMType.String:
 					var hVal = (data[0] & 0xF);
-					if (hVal < 15)
+					if (hVal < 0xF)
 					{
 						rest = data[1..];
-						return hVal.ToString(CultureInfo.InvariantCulture);
+						Span<byte> buf = stackalloc byte[2];
+						Util.Assert(Utf8Formatter.TryFormat(hVal, buf, out var written));
+						output.Write(buf[..written]);
+						return;
 					}
-					return ReadNumber(data[1..], out rest);
+					ReadNumber(output, data[1..], out rest);
+					return;
 
 				case JBMType.NumStr:
 					int nsOff = 1;
 					var strb = new StringBuilder();
 
-					if ((pick & 0b0000_0001) != 0) strb.Append('-');
-					if ((pick & 0b0000_0010) != 0) strb.Append("0.");
+					if ((pick & 0b0000_0001) != 0) output.WriteByte((byte)'-');
+					if ((pick & 0b0000_0010) != 0) output.Write(Constants.Fraction);
 
 					while (true)
 					{
 						var b = data[nsOff++];
 
-						if (Get((byte)(b >> 4)) is { } bFirst) strb.Append(bFirst);
+						if (Get((byte)(b >> 4)) is { } bFirst) output.WriteByte(bFirst);
 						else break;
-						if (Get((byte)(b & 0xF)) is { } bSecond) strb.Append(bSecond);
+						if (Get((byte)(b & 0xF)) is { } bSecond) output.WriteByte(bSecond);
 						else break;
 
-						static char? Get(byte val) => val switch
+						static byte? Get(byte val) => val switch
 						{
-							>= 0 and <= 9 => (char)('0' + val),
-							0xA => '+',
-							0xB => '-',
-							0xC => '.',
-							0xD => 'e',
-							0xE => 'E',
+							>= 0 and <= 9 => (byte)('0' + val),
+							0xA => (byte)'+',
+							0xB => (byte)'-',
+							0xC => (byte)'.',
+							0xD => (byte)'e',
+							0xE => (byte)'E',
 							0xF => null,
-							_ => throw new InvalidCastException(),
+							_ => throw new InvalidDataException(),
 						};
 					}
 					rest = data[nsOff..];
-					return strb.ToString();
+					return;
 			}
 
 			switch ((JBMType)pick)
@@ -180,63 +190,139 @@ namespace JsonBinMin
 					rest = data[3..];
 					throw new NotImplementedException();
 				case JBMType.Float32:
-					rest = data[5..];
-					return BitConverter.ToSingle(data[1..]).ToString(CultureInfo.InvariantCulture);
+					{
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
+						var val = BitConverter.ToSingle(data[1..]);
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[5..];
+						return;
+					}
 				case JBMType.Float64:
-					rest = data[9..];
-					return BitConverter.ToDouble(data[1..]).ToString(CultureInfo.InvariantCulture);
+					{
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatDoubleLength];
+						var val = BitConverter.ToDouble(data[1..]);
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[9..];
+						return;
+					}
 			}
 
 			switch ((JBMType)(pick & 0b1_111_111_0))
 			{
 				case JBMType.Int8:
-					rest = data[2..];
-					return FlagStr(data[1].ToString(CultureInfo.InvariantCulture), pick);
-				case JBMType.Int16:
-					rest = data[3..];
-					return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-				case JBMType.Int24:
-					rest = data[4..];
-					// TD return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-					throw new NotImplementedException();
-				case JBMType.Int32:
-					rest = data[5..];
-					return FlagStr(BinaryPrimitives.ReadUInt32LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-				case JBMType.Int48:
-					rest = data[7..];
-					// TD return FlagStr(BinaryPrimitives.ReadUInt16LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-					throw new NotImplementedException();
-				case JBMType.Int64:
-					rest = data[9..];
-					return FlagStr(BinaryPrimitives.ReadUInt64LittleEndian(data[1..]).ToString(CultureInfo.InvariantCulture), pick);
-				case JBMType.IntRle:
-					// [0XXX_XXXX] 1 byte
-					// [1XXX_XXXX] [0XXX_XXXX] 2 byte ...
-					int rleOff = 1;
-					var intAcc = new BigInteger();
-					do
 					{
-						intAcc <<= 7;
-						intAcc |= data[rleOff] & 0b0111_1111;
-					} while ((data[rleOff++] & 0x80) != 0);
-					rest = data[rleOff..];
-					return FlagStr(intAcc.ToString(CultureInfo.InvariantCulture), pick);
+						WriteSignByFlag(output, pick);
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt8Length];
+						var val = data[1];
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[2..];
+						return;
+					}
+				case JBMType.Int16:
+					{
+						WriteSignByFlag(output, pick);
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt16Length];
+						var val = BinaryPrimitives.ReadUInt16LittleEndian(data[1..]);
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[3..];
+						return;
+					}
+				case JBMType.Int24:
+					{
+						WriteSignByFlag(output, pick);
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt24Length];
+						var valLow = (uint)BinaryPrimitives.ReadUInt16LittleEndian(data[1..]);
+						var valHigh = (uint)data[3];
+						var val = valHigh << 16 | valLow;
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[4..];
+						return;
+					}
+				case JBMType.Int32:
+					{
+						WriteSignByFlag(output, pick);
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt32Length];
+						var val = BinaryPrimitives.ReadUInt32LittleEndian(data[1..]);
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[5..];
+						return;
+					}
+				case JBMType.Int48:
+					{
+						WriteSignByFlag(output, pick);
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt48Length];
+						var valLow = (ulong)BinaryPrimitives.ReadUInt32LittleEndian(data[1..]);
+						var valHigh = (ulong)BinaryPrimitives.ReadUInt16LittleEndian(data[5..]);
+						var val = valHigh << 32 | valLow;
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[7..];
+						return;
+					}
+				case JBMType.Int64:
+					{
+						WriteSignByFlag(output, pick);
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
+						var val = BinaryPrimitives.ReadUInt64LittleEndian(data[1..]);
+						Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+						output.Write(buf[..written]);
+						rest = data[9..];
+						return;
+					}
+				case JBMType.IntRle:
+					{
+						// [0XXX_XXXX] 1 byte
+						// [1XXX_XXXX] [0XXX_XXXX] 2 byte ...
+						int rleOff = 1;
+						var intAcc = new BigInteger();
+						do
+						{
+							intAcc <<= 7;
+							intAcc |= data[rleOff] & 0b0111_1111;
+						} while ((data[rleOff++] & 0x80) != 0);
+						WriteSignByFlag(output, pick);
+						foreach (var c in intAcc.ToString(CultureInfo.InvariantCulture))
+							output.WriteByte((byte)c);
+						rest = data[rleOff..];
+						return;
+					}
 			}
 
 			throw new InvalidOperationException();
 		}
 
-		private static string FlagStr(string s, byte i) => (i & 1) == 0 ? s : "-" + s;
+		private int ReadNumberToInt(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
+		{
+			mem.SetLength(0);
+			ReadNumber(mem, data, out rest);
+			Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt32Length];
+			mem.Position = 0;
+			mem.Read(buf[..(int)mem.Length]);
+			if (!Utf8Parser.TryParse(buf, out int val, out _))
+				throw new InvalidDataException();
+			return val;
+		}
+
+		private static void WriteSignByFlag(Stream output, byte i)
+		{
+			if ((i & 1) != 0)
+				output.WriteByte((byte)'-');
+		}
 
 		// reads without PickByte
-		public string ReadString(Span<byte> data, out Span<byte> rest)
+		public void ReadString(Stream output, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 		{
-			var numStr = ReadNumber(data, out data);
-			var strLen = int.Parse(numStr, NumberStyles.Integer, CultureInfo.InvariantCulture);
-			var readStr = Encoding.UTF8.GetString(data[..strLen]);
-			var str = '"' + JsonEncodedText.Encode(readStr).ToString() + '"';
+			var strLen = ReadNumberToInt(data, out data);
+			output.WriteByte((byte)'"');
+			output.Write(JsonEncodedText.Encode(data[..strLen]).EncodedUtf8Bytes);
+			output.WriteByte((byte)'"');
 			rest = data[strLen..];
-			return str;
 		}
 	}
 }

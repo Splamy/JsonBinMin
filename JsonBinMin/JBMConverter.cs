@@ -1,15 +1,17 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 
 namespace JsonBinMin
 {
-	public class JsonBinMin
+	public class JBMConverter
 	{
 		private readonly DictBuilder dictBuilder;
-		private readonly JsonBinMinOptions options;
+		private readonly JBMOptions options;
 
-		public JsonBinMin() : this(JsonBinMinOptions.Default) { }
-		public JsonBinMin(JsonBinMinOptions options)
+		public JBMConverter() : this(JBMOptions.Default) { }
+		public JBMConverter(JBMOptions options)
 		{
 			dictBuilder = new(options);
 			this.options = options;
@@ -27,7 +29,7 @@ namespace JsonBinMin
 		}
 		public static byte[] Compress(JsonElement elem)
 		{
-			var jbm = new JsonBinMin();
+			var jbm = new JBMConverter();
 			jbm.AddToDictionary(elem);
 			jbm.FinalizeDictionary();
 			return jbm.CompressEntity(elem);
@@ -79,12 +81,25 @@ namespace JsonBinMin
 			return ctx.output.ToArray();
 		}
 
-		public static string DecompressToString(byte[] json)
+		private static MemoryStream DecompressToStreamInternal(byte[] data)
 		{
 			var ctx = new DecompressCtx();
-			var parsePos = json.AsSpan();
+			ReadOnlySpan<byte> parsePos = data.AsSpan();
 			while (ctx.Parse(parsePos, out parsePos)) ;
-			return ctx.Output.ToString();
+			ctx.Output.Position = 0;
+			return ctx.Output;
+		}
+		public static Stream DecompressToStream(byte[] data) => DecompressToStreamInternal(data);
+		public static byte[] DecompressToBytes(byte[] data)
+		{
+			var stream = DecompressToStreamInternal(data);
+			return stream.ToArray();
+		}
+		public static string DecompressToString(byte[] data)
+		{
+			using var stream = DecompressToStream(data);
+			using var reader = new StreamReader(stream, Encoding.UTF8);
+			return reader.ReadToEnd();
 		}
 	}
 }

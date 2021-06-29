@@ -29,26 +29,26 @@ namespace JsonBinMin.Tests
 		{
 			var json = File.ReadAllText(Path.Combine("Assets", file));
 
-			var compressed = JsonBinMin.Compress(json);
+			var compressed = JBMConverter.Compress(json);
 			Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
 			Directory.CreateDirectory("Compressed");
 			File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
-			var roundtrip = JsonBinMin.DecompressToString(compressed);
+			var roundtrip = JBMConverter.DecompressToString(compressed);
 
-			AssertStructuralEqual(json, roundtrip, JsonBinMinOptions.Default);
+			AssertStructuralEqual(json, roundtrip, JBMOptions.Default);
 		}
 	}
 
 	public static class AssertUtil
 	{
-		public static void AssertStructuralEqual(string jsonExprected, string jsonActual, JsonBinMinOptions options)
+		public static void AssertStructuralEqual(string jsonExprected, string jsonActual, JBMOptions options)
 		{
 			var expected = JsonSerializer.Deserialize<JsonElement>(jsonExprected);
 			var actual = JsonSerializer.Deserialize<JsonElement>(jsonActual);
 			AssertStructuralEqual(expected, actual, options);
 		}
 
-		public static void AssertStructuralEqual(JsonElement jsonExprected, JsonElement jsonActual, JsonBinMinOptions options)
+		public static void AssertStructuralEqual(JsonElement jsonExprected, JsonElement jsonActual, JBMOptions options)
 		{
 			Assert.AreEqual(jsonExprected.ValueKind, jsonActual.ValueKind);
 			switch (jsonExprected.ValueKind)

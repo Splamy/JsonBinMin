@@ -13,11 +13,11 @@ namespace JsonBinMin
 	internal class CompressCtx
 	{
 		private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
-		public readonly JsonBinMinOptions options;
+		public readonly JBMOptions options;
 		public readonly MemoryStream output = new();
 		public readonly Dictionary<(string, DictElemKind), DictEntry> dict;
 
-		public CompressCtx(JsonBinMinOptions options, DictBuilder dictBuilder)
+		public CompressCtx(JBMOptions options, DictBuilder dictBuilder)
 		{
 			this.options = options;
 			dictBuilder.FinalizeDictionary();
@@ -120,7 +120,7 @@ namespace JsonBinMin
 			WriteStringValue(str, output, options);
 		}
 
-		public static void WriteStringValue(string str, Stream output, JsonBinMinOptions options)
+		public static void WriteStringValue(string str, Stream output, JBMOptions options)
 		{
 			if (str.Length < 0xF)
 			{
@@ -152,7 +152,7 @@ namespace JsonBinMin
 			WriteNumberValue(num, output, options);
 		}
 
-		public static void WriteNumberValue(string numRaw, Stream output, JsonBinMinOptions options)
+		public static void WriteNumberValue(string numRaw, Stream output, JBMOptions options)
 		{
 			var num = numRaw.AsSpan();
 			var numNeg = num.StartsWith("-");
@@ -179,11 +179,29 @@ namespace JsonBinMin
 							output.Write(buf);
 							return;
 						}
+					case <= (1UL << 24):
+						{
+							Span<byte> buf = stackalloc byte[4];
+							buf[0] = FlagType(JBMType.Int24, numNeg);
+							BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(integerVal & 0xFFFF));
+							buf[3] = (byte)((integerVal >> 16) & 0xFF);
+							output.Write(buf);
+							return;
+						}
 					case <= uint.MaxValue:
 						{
 							Span<byte> buf = stackalloc byte[5];
 							buf[0] = FlagType(JBMType.Int32, numNeg);
 							BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)integerVal);
+							output.Write(buf);
+							return;
+						}
+					case <= (1UL << 48):
+						{
+							Span<byte> buf = stackalloc byte[7];
+							buf[0] = FlagType(JBMType.Int48, numNeg);
+							BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(integerVal & 0xFFFFFFFF));
+							BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)((integerVal >> 32) & 0xFFFF));
 							output.Write(buf);
 							return;
 						}
