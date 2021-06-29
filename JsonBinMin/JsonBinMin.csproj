@@ -15,6 +15,7 @@
     <RepositoryUrl>https://github.com/Splamy/JsonBinMin</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
