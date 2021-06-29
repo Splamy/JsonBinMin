@@ -1,4 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("JsonBinMin.Tests")]
 
 namespace JsonBinMin
 {

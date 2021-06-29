@@ -21,7 +21,7 @@ namespace JsonBinMin
 		{
 			this.options = options;
 			dictBuilder.FinalizeDictionary();
-			this.dict = dictBuilder.Dict ?? throw new ArgumentNullException(nameof(dictBuilder));
+			dict = dictBuilder.Dict!;
 			output.Write(dictBuilder.DictSerialized);
 		}
 
@@ -34,70 +34,70 @@ namespace JsonBinMin
 
 			switch (elem.ValueKind)
 			{
-				case JsonValueKind.Undefined:
-					throw new InvalidOperationException();
+			case JsonValueKind.Undefined:
+				throw new InvalidOperationException();
 
-				case JsonValueKind.Object:
-					var objElemems = elem.EnumerateObject().ToArray();
+			case JsonValueKind.Object:
+				var objElemems = elem.EnumerateObject().ToArray();
 
-					if (objElemems.Length < 0xF)
-					{
-						output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
-					}
-					else
-					{
-						output.WriteByte((byte)JBMType.ObjectExt);
-						WriteNumberValue(objElemems.Length.ToString(CultureInfo.InvariantCulture));
-					}
+				if (objElemems.Length < 0xF)
+				{
+					output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
+				}
+				else
+				{
+					output.WriteByte((byte)JBMType.ObjectExt);
+					WriteNumberValue(objElemems.Length.ToString(CultureInfo.InvariantCulture));
+				}
 
-					foreach (var kvp in objElemems)
-					{
-						WriteStringValue(kvp.Name);
-						WriteValue(kvp.Value);
-					}
-					break;
+				foreach (var kvp in objElemems)
+				{
+					WriteStringValue(kvp.Name);
+					WriteValue(kvp.Value);
+				}
+				break;
 
-				case JsonValueKind.Array:
-					var arrElemems = elem.EnumerateArray().ToArray();
+			case JsonValueKind.Array:
+				var arrElemems = elem.EnumerateArray().ToArray();
 
-					if (arrElemems.Length < 0xF)
-					{
-						output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
-					}
-					else
-					{
-						output.WriteByte((byte)JBMType.ArrayExt);
-						WriteNumberValue(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
-					}
+				if (arrElemems.Length < 0xF)
+				{
+					output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
+				}
+				else
+				{
+					output.WriteByte((byte)JBMType.ArrayExt);
+					WriteNumberValue(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
+				}
 
-					foreach (var arrItem in arrElemems)
-					{
-						WriteValue(arrItem);
-					}
-					break;
+				foreach (var arrItem in arrElemems)
+				{
+					WriteValue(arrItem);
+				}
+				break;
 
-				case JsonValueKind.String:
-					WriteStringValue(elem.GetString());
-					break;
+			case JsonValueKind.String:
+				WriteStringValue(elem.GetString());
+				break;
 
-				case JsonValueKind.Number:
-					WriteNumberValue(elem.GetRawText());
-					break;
+			case JsonValueKind.Number:
+				WriteNumberValue(elem.GetRawText());
+				break;
 
-				case JsonValueKind.True:
-					output.WriteByte((byte)JBMType.True);
-					break;
+			case JsonValueKind.True:
+				output.WriteByte((byte)JBMType.True);
+				break;
 
-				case JsonValueKind.False:
-					output.WriteByte((byte)JBMType.False);
-					break;
+			case JsonValueKind.False:
+				output.WriteByte((byte)JBMType.False);
+				break;
 
-				case JsonValueKind.Null:
-					WriteNull();
-					break;
+			case JsonValueKind.Null:
+				WriteNull();
+				break;
 
-				default:
-					break;
+			default:
+				throw new InvalidOperationException();
 			}
 		}
 
@@ -162,76 +162,75 @@ namespace JsonBinMin
 			{
 				switch (integerVal)
 				{
-					case <= 0x1F when !numNeg:
-						output.WriteByte((byte)((byte)JBMType.IntInline | integerVal));
+				case <= 0x1F when !numNeg:
+					output.WriteByte((byte)((byte)JBMType.IntInline | integerVal));
+					return;
+				case <= byte.MaxValue:
+					{
+						Span<byte> buf = stackalloc byte[2] { GetWithNegativeFlag(JBMType.Int8, numNeg), (byte)integerVal };
+						output.Write(buf);
 						return;
-					case <= byte.MaxValue:
-						{
-							Span<byte> buf = stackalloc byte[2] { FlagType(JBMType.Int8, numNeg), (byte)integerVal };
-							output.Write(buf);
-							return;
-						}
-					case <= ushort.MaxValue:
-						{
-							Span<byte> buf = stackalloc byte[3];
-							buf[0] = FlagType(JBMType.Int16, numNeg);
-							BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)integerVal);
-							output.Write(buf);
-							return;
-						}
-					case <= (1UL << 24):
-						{
-							Span<byte> buf = stackalloc byte[4];
-							buf[0] = FlagType(JBMType.Int24, numNeg);
-							BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(integerVal & 0xFFFF));
-							buf[3] = (byte)((integerVal >> 16) & 0xFF);
-							output.Write(buf);
-							return;
-						}
-					case <= uint.MaxValue:
-						{
-							Span<byte> buf = stackalloc byte[5];
-							buf[0] = FlagType(JBMType.Int32, numNeg);
-							BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)integerVal);
-							output.Write(buf);
-							return;
-						}
-					case <= (1UL << 48):
-						{
-							Span<byte> buf = stackalloc byte[7];
-							buf[0] = FlagType(JBMType.Int48, numNeg);
-							BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(integerVal & 0xFFFFFFFF));
-							BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)((integerVal >> 32) & 0xFFFF));
-							output.Write(buf);
-							return;
-						}
-					case <= ulong.MaxValue:
-						{
-							Span<byte> buf = stackalloc byte[9];
-							buf[0] = FlagType(JBMType.Int64, numNeg);
-							BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], (ulong)integerVal);
-							output.Write(buf);
-							return;
-						}
+					}
+				case <= ushort.MaxValue:
+					{
+						Span<byte> buf = stackalloc byte[3];
+						buf[0] = GetWithNegativeFlag(JBMType.Int16, numNeg);
+						BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)integerVal);
+						output.Write(buf);
+						return;
+					}
+				case <= Constants.U24MaxValue:
+					{
+						Span<byte> buf = stackalloc byte[4];
+						buf[0] = GetWithNegativeFlag(JBMType.Int24, numNeg);
+						BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(integerVal & 0xFFFF));
+						buf[3] = (byte)((integerVal >> 16) & 0xFF);
+						output.Write(buf);
+						return;
+					}
+				case <= uint.MaxValue:
+					{
+						Span<byte> buf = stackalloc byte[5];
+						buf[0] = GetWithNegativeFlag(JBMType.Int32, numNeg);
+						BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)integerVal);
+						output.Write(buf);
+						return;
+					}
+				case <= Constants.U48MaxValue:
+					{
+						Span<byte> buf = stackalloc byte[7];
+						buf[0] = GetWithNegativeFlag(JBMType.Int48, numNeg);
+						BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(integerVal & 0xFFFFFFFF));
+						BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)((integerVal >> 32) & 0xFFFF));
+						output.Write(buf);
+						return;
+					}
+				case <= ulong.MaxValue:
+					{
+						Span<byte> buf = stackalloc byte[9];
+						buf[0] = GetWithNegativeFlag(JBMType.Int64, numNeg);
+						BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], (ulong)integerVal);
+						output.Write(buf);
+						return;
+					}
 
-					default:
-						throw new InvalidOperationException();
+				default:
+					throw new InvalidOperationException();
 				}
 			}
 
-			var rle = TryGetNumRle(posNum);
-			var rleLen = rle?.Length ?? 0;
+			if (TryGetNumRle(num) is not null and var rle)
+			{
+				output.Write(rle);
+				return;
+			}
+
 			var numStr = GetNumStr(num);
 			var numStrLen = numStr.Length;
 
-			if (rle != null) // number is an integer
-			{
-				if (rleLen < numStrLen)
-					output.Write(rle);
-				else
-					output.Write(numStr);
-				return;
-			}
+			var upperE = num.Contains("E", StringComparison.Ordinal);
+			var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
+			if (tail0) num = num[..^2];
 
 #if NET5_0_OR_GREATER
 			if (options.UseHalfType &&
@@ -253,12 +252,12 @@ namespace JsonBinMin
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var floatVal)
-				&& floatVal.ToString(CultureInfo.InvariantCulture) == num
+				&& num.Equals(floatVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
 				&& numStrLen >= 5)
 			{
 				Span<byte> buf = stackalloc byte[5];
-				buf[0] = (byte)JBMType.Float32;
-				if (!BitConverter.TryWriteBytes(buf[1..], floatVal)) throw new InvalidOperationException();
+				buf[0] = GetWithFloatFlags(JBMType.Float32, tail0, upperE);
+				Util.Assert(BitConverter.TryWriteBytes(buf[1..], floatVal));
 				output.Write(buf);
 				return;
 			}
@@ -267,12 +266,12 @@ namespace JsonBinMin
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var doubleVal)
-				&& doubleVal.ToString(CultureInfo.InvariantCulture) == num
+				&& num.Equals(doubleVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
 				&& numStrLen >= 9)
 			{
 				Span<byte> buf = stackalloc byte[9];
-				buf[0] = (byte)JBMType.Float64;
-				if (!BitConverter.TryWriteBytes(buf[1..], doubleVal)) throw new InvalidOperationException();
+				buf[0] = GetWithFloatFlags(JBMType.Float64, tail0, upperE);
+				Util.Assert(BitConverter.TryWriteBytes(buf[1..], doubleVal));
 				output.Write(buf);
 				return;
 			}
@@ -288,7 +287,9 @@ namespace JsonBinMin
 			return true;
 		}
 
-		private static byte FlagType(JBMType t, bool n) => n ? (byte)((int)t | 1) : (byte)t;
+		private static byte GetWithNegativeFlag(JBMType t, bool n) => n ? (byte)((int)t | 1) : (byte)t;
+		private static byte GetWithFloatFlags(JBMType t, bool tail0, bool upper)
+			=> (byte)((byte)t | (tail0 ? 2 : 0) | (upper ? 1 : 0));
 
 		public static byte[]? TryGetNumRle(ReadOnlySpan<char> num)
 		{
@@ -311,7 +312,7 @@ namespace JsonBinMin
 			}
 			for (int i = 1; i < buf.Count; i++) buf[i] |= 0x80;
 			buf.Reverse();
-			buf.Insert(0, FlagType(JBMType.IntRle, neg));
+			buf.Insert(0, GetWithNegativeFlag(JBMType.IntRle, neg));
 			return buf.ToArray();
 		}
 
@@ -328,11 +329,14 @@ namespace JsonBinMin
 			bool neg = num.StartsWith("-");
 			if (neg) num = num[1..];
 
-			bool frac = num.StartsWith("0.", StringComparison.Ordinal);
-			if (frac) num = num[2..];
+			bool lead0 = num.StartsWith("0.", StringComparison.Ordinal);
+			if (lead0) num = num[2..];
+
+			bool tail0 = num.EndsWith(".0", StringComparison.Ordinal);
+			if (tail0) num = num[..^2];
 
 			var buf = new byte[1 + (num.Length / 2) + 1];
-			buf[0] = (byte)((byte)JBMType.NumStr | (frac ? 2 : 0) | (neg ? 1 : 0));
+			buf[0] = (byte)((byte)JBMType.NumStr | (lead0 ? 4 : 0) | (tail0 ? 2 : 0) | (neg ? 1 : 0));
 			int bufPos = 1;
 
 			bool firstNibble = true;

@@ -17,21 +17,24 @@ namespace JsonBinMin
 			this.options = options;
 		}
 
-		public static byte[] Compress(string json)
+		public static byte[] Compress(string json, JBMOptions? options = null)
 		{
 			var elem = JsonSerializer.Deserialize<JsonElement>(json);
-			return Compress(elem);
+			return Compress(elem, options);
 		}
-		public static byte[] Compress(byte[] json)
+		public static byte[] Compress(byte[] json, JBMOptions? options = null)
 		{
 			var elem = JsonSerializer.Deserialize<JsonElement>(json);
-			return Compress(elem);
+			return Compress(elem, options);
 		}
-		public static byte[] Compress(JsonElement elem)
+		public static byte[] Compress(JsonElement elem, JBMOptions? options = null)
 		{
-			var jbm = new JBMConverter();
-			jbm.AddToDictionary(elem);
-			jbm.FinalizeDictionary();
+			var jbm = new JBMConverter(options ?? JBMOptions.Default);
+			if (jbm.options.UseDict)
+			{
+				jbm.AddToDictionary(elem);
+				jbm.FinalizeDictionary();
+			}
 			return jbm.CompressEntity(elem);
 		}
 

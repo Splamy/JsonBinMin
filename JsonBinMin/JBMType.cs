@@ -14,13 +14,15 @@
 		StringExt   = 0b0_100_1111, //            [T] [Int] ?X...?
 
 		_Block101   = 0b0_101_0000,
-		False       = 0b0_101_0000, // [T]
-		True        = 0b0_101_0001, // [T]
-		Null        = 0b0_101_0010, // [T]
-		Float16     = 0b0_101_0011, // [T] ## (Not Implemented)
-		Float32     = 0b0_101_0100, // [T] ####
-		Float64     = 0b0_101_0101, // [T] ########
-		MetaDictDef = 0b0_101_1111, // [#=size] [X, Y, Z, ...]
+		MetaDictDef = 0b0_101_0000, // [#=size] [X, Y, Z, ...]
+		False       = 0b0_101_0001, // [T]
+		True        = 0b0_101_0010, // [T]
+		Null        = 0b0_101_0011, // [T]
+
+		//             [D TTT KK T U] T=Type K=Kind T=Tailing'.0' U=UpperCase-'E' for exponent
+		Float16     = 0b0_101_01_0_0, // [T] ## (Not Implemented)
+		Float32     = 0b0_101_10_0_0, // [T] ####
+		Float64     = 0b0_101_11_0_0, // [T] ########
 
 		//             [D TTT KKK N] T=Type K=Kind N=Negative
 		_Block110   = 0b0_110_000_0,
@@ -32,8 +34,8 @@
 		Int64       = 0b0_110_101_0, // [T] ########
 		IntRle      = 0b0_110_111_0, // [T] ?X...?
 
-		//             [D TTT __ F N] T=Type F=Fraction N=Negative
-		NumStr      = 0b0_111_00_0_0, // [T] ?NumStr...?
+		//             [D TTT _ L T N] T=Type _=Unused L=Leading'0.' T=Tailing'.0' N=Negative
+		NumStr      = 0b0_111_0_0_0_0, // [T] ?NumStr...?
 		// B64Str,HexStr ?
 	}
 }

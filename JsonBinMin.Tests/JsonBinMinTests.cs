@@ -1,4 +1,3 @@
-
 using System;
 using System.IO;
 using System.Linq;
@@ -19,7 +18,9 @@ namespace JsonBinMin.Tests
 
 			"opts_01.json",
 
-			"floats_01.json",
+			"nums_01.json",
+			"nums_02.json",
+			"nums_03.json",
 
 			"big_01.json",
 		};
@@ -29,13 +30,53 @@ namespace JsonBinMin.Tests
 		{
 			var json = File.ReadAllText(Path.Combine("Assets", file));
 
-			var compressed = JBMConverter.Compress(json);
+			var compressed = JBMConverter.Compress(json, new() { UseDict = true });
 			Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
 			Directory.CreateDirectory("Compressed");
 			File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
 			var roundtrip = JBMConverter.DecompressToString(compressed);
 
 			AssertStructuralEqual(json, roundtrip, JBMOptions.Default);
+		}
+
+		[Test]
+		public void TestLengthsOfNumbers()
+		{
+			for (var m = 0; m <= 1; m++)
+			{
+				for (int i = 0; i < 128; i++)
+				{
+					for (int v = -1; v <= 1; v++)
+					{
+						var val = (System.Numerics.BigInteger.One << i) + v;
+						var neg = m == 1;
+						var formatted = $"{(neg ? "-" : "")}{val}";
+
+						var mem = new MemoryStream();
+						CompressCtx.WriteNumberValue(formatted, mem, JBMOptions.Default);
+
+						// 1 byte type
+						long maxSize = 1;
+						// n bytes for bits
+						maxSize += i switch
+						{
+							< 8 => 1,
+							< 16 => 2,
+							< 24 => 3,
+							< 32 => 4,
+							< 48 => 6,
+							< 64 => 8,
+							>= 64 => (i / 7) + 1,
+						};
+
+						if (i % 8 == 0 && !neg && v == 1)
+							maxSize += 1;
+						else if (i % 8 == 0 && neg && v == -1)
+							maxSize += 1;
+						Assert.LessOrEqual(mem.Length, maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
+					}
+				}
+			}
 		}
 	}
 
@@ -48,27 +89,27 @@ namespace JsonBinMin.Tests
 			AssertStructuralEqual(expected, actual, options);
 		}
 
-		public static void AssertStructuralEqual(JsonElement jsonExprected, JsonElement jsonActual, JBMOptions options)
+		public static void AssertStructuralEqual(JsonElement jsonExpected, JsonElement jsonActual, JBMOptions options)
 		{
-			Assert.AreEqual(jsonExprected.ValueKind, jsonActual.ValueKind);
-			switch (jsonExprected.ValueKind)
+			Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind);
+			switch (jsonExpected.ValueKind)
 			{
 				case JsonValueKind.Object:
-					foreach (var (expected, actual) in jsonExprected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
+					foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
 					{
 						Assert.AreEqual(expected.Name, actual.Name);
 						AssertStructuralEqual(expected.Value, actual.Value, options);
 					}
 					break;
 				case JsonValueKind.Array:
-					foreach (var (expected, actual) in jsonExprected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
+					foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
 						AssertStructuralEqual(expected, actual, options);
 					break;
 				case JsonValueKind.String:
-					Assert.AreEqual(jsonExprected.GetString(), jsonActual.GetString());
+					Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString());
 					break;
 				case JsonValueKind.Number:
-					Assert.AreEqual(jsonExprected.GetRawText(), jsonExprected.GetRawText());
+					Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText());
 					break;
 				case JsonValueKind.Undefined:
 				case JsonValueKind.True:
@@ -80,4 +121,9 @@ namespace JsonBinMin.Tests
 			}
 		}
 	}
+
+	// Codecov, following here:
+	// - https://docs.microsoft.com/en-gb/dotnet/core/testing/unit-testing-code-coverage?tabs=windows
+	// dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+	// reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage -reporttypes:Html
 }

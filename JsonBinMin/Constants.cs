@@ -12,7 +12,9 @@ namespace JsonBinMin
 		public static ReadOnlySpan<byte> Null => new[] { (byte)'n', (byte)'u', (byte)'l', (byte)'l' };
 
 		/// <summary><code>0.</code></summary>
-		public static ReadOnlySpan<byte> Fraction => new[] { (byte)'0', (byte)'.' };
+		public static ReadOnlySpan<byte> Leading0 => new[] { (byte)'0', (byte)'.' };
+		/// <summary><code>.0</code></summary>
+		public static ReadOnlySpan<byte> Tailing0 => new[] { (byte)'.', (byte)'0' };
 
 		// Numbers (mostly) from https://source.dot.net/#System.Text.Json/System/Text/Json/JsonConstants.cs,141da09d6ed4b1f2
 		public const int MaximumFormatUInt8Length = 3; // i.e. 255
@@ -23,5 +25,8 @@ namespace JsonBinMin
 		public const int MaximumFormatUInt64Length = 20;  // i.e. 18446744073709551615
 		public const int MaximumFormatDoubleLength = 128;  // default (i.e. 'G'), using 128 (rather than say 32) to be future-proof.
 		public const int MaximumFormatSingleLength = 128;  // default (i.e. 'G'), using 128 (rather than say 32) to be future-proof.
+
+		public const uint U24MaxValue = (1U << 24) - 1;
+		public const ulong U48MaxValue = (1UL << 48) - 1;
 	}
 }
