@@ -3,13 +3,17 @@ using System.Buffers.Binary;
 using System.Buffers.Text;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
 namespace JsonBinMin
 {
-	internal class DecompressCtx
+	internal class JBMDecoder
+
 	{
 		public JBMOptions Options { get; } = JBMOptions.Default;
 		public MemoryStream Output { get; set; } = new();
@@ -94,7 +98,7 @@ namespace JsonBinMin
 					case JBMType.MetaDictDef:
 						var dictSize = ReadNumberToInt(data[1..], out data);
 						Dict = new byte[dictSize][];
-						var dictCtx = new DecompressCtx
+						var dictCtx = new JBMDecoder
 						{
 							Dict = Dict // allow in-self referential dict entries
 						};
@@ -106,6 +110,9 @@ namespace JsonBinMin
 						}
 						rest = data;
 						return true;
+
+					case JBMType.Compressed:
+						throw new Exception("Mid jbm compression is not supported");
 
 					default:
 						throw new InvalidDataException();
@@ -122,10 +129,34 @@ namespace JsonBinMin
 				ReadNumber(Output, data, out rest);
 				break;
 
-			default: 
+			default:
 				throw new InvalidDataException();
 			}
 			return false;
+		}
+
+		public static MemoryStream Decompress(ReadOnlySpan<byte> data) {
+			var mem = new MemoryStream(Math.Max(8192, data.Length * 2));
+			var bd = new BrotliDecoder();
+			Span<byte> buffer = stackalloc byte[8192];
+			while (true)
+			{
+				var res = bd.Decompress(data, buffer, out var read, out var written);
+				data = data[read..];
+				mem.Write(buffer[..written]);
+
+				switch (res)
+				{
+				case System.Buffers.OperationStatus.DestinationTooSmall:
+					continue;
+				case System.Buffers.OperationStatus.Done:
+					return mem;
+				case System.Buffers.OperationStatus.InvalidData:
+					throw new Exception("InvalidData");
+				case System.Buffers.OperationStatus.NeedMoreData:
+					throw new Exception("NeedMoreData");
+				}
+			}
 		}
 
 		// reads with PickByte
@@ -211,8 +242,19 @@ namespace JsonBinMin
 				switch ((JBMType)(pick & 0b1_111_11_0_0))
 				{
 				case JBMType.Float16:
-					rest = data[3..];
-					throw new NotImplementedException();
+					{
+#if NET5_0_OR_GREATER
+						Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
+						// https://source.dot.net/#System.Private.CoreLib/BitConverter.cs,573
+						var val = Unsafe.ReadUnaligned<Half>(ref MemoryMarshal.GetReference(data[1..]));
+						var written = Encoding.UTF8.GetBytes(val.ToString(CultureInfo.InvariantCulture), buf);
+						SetE(buf[..written], upperE ? 'E' : 'e');
+						output.Write(buf[..written]);
+						if (tail0) output.Write(Constants.Tailing0);
+#endif
+						rest = data[3..];
+						return;
+					}
 				case JBMType.Float32:
 					{
 						Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];

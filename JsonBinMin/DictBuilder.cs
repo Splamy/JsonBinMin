@@ -72,7 +72,7 @@ namespace JsonBinMin
 				return;
 
 			mem.SetLength(0);
-			CompressCtx.WriteNumberValue(num, mem, options);
+			JBMEncoder.WriteNumberValue(num, mem, options);
 			var binary = mem.ToArray();
 
 			if (!buildDict.TryGetValue((num, DictElemKind.Number), out var de))
@@ -87,7 +87,7 @@ namespace JsonBinMin
 			AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
 
 			mem.SetLength(0);
-			CompressCtx.WriteStringValue(str, mem, options);
+			JBMEncoder.WriteStringValue(str, mem, options);
 			var binary = mem.ToArray();
 
 			if (!buildDict.TryGetValue((str, DictElemKind.String), out var de))
@@ -122,7 +122,8 @@ namespace JsonBinMin
 
 			mem.SetLength(0);
 			mem.WriteByte((byte)JBMType.MetaDictDef);
-			CompressCtx.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), mem, options);
+			Trace.Assert(dictValues.Length <= 0x7f);
+			JBMEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), mem, options);
 
 			Dict = new();
 			for (int i = 0; i < dictValues.Length; i++)

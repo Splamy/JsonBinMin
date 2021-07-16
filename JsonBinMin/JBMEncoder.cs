@@ -5,19 +5,21 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
 namespace JsonBinMin
 {
-	internal class CompressCtx
+	internal class JBMEncoder
+
 	{
 		private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
 		public readonly JBMOptions options;
 		public readonly MemoryStream output = new();
 		public readonly Dictionary<(string, DictElemKind), DictEntry> dict;
 
-		public CompressCtx(JBMOptions options, DictBuilder dictBuilder)
+		public JBMEncoder(JBMOptions options, DictBuilder dictBuilder)
 		{
 			this.options = options;
 			dictBuilder.FinalizeDictionary();
@@ -233,28 +235,29 @@ namespace JsonBinMin
 			if (tail0) num = num[..^2];
 
 #if NET5_0_OR_GREATER
-			if (options.UseFloats.HasFlag(UseFloats.Half) &&
+			if (numStrLen >= 3
+				&& options.UseFloats.HasFlag(UseFloats.Half) &&
 				Half.TryParse(num,
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var halfVal)
-				&& halfVal.ToString(CultureInfo.InvariantCulture) == num
-				&& numStrLen >= 3)
+				&& num.Equals(halfVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
 			{
 				Span<byte> buf = stackalloc byte[3];
-				buf[0] = (byte)JBMType.Float16;
-				BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], unchecked((ushort)halfVal));
+				buf[0] = GetWithFloatFlags(JBMType.Float16, tail0, upperE);
+				// https://source.dot.net/#System.Private.CoreLib/BitConverter.cs,256
+				Unsafe.As<byte, Half>(ref buf[1]) = halfVal;
 				output.Write(buf);
 				return;
 			}
 #endif
-			if (options.UseFloats.HasFlag(UseFloats.Single) &&
+			if (numStrLen >= 5 &&
+				options.UseFloats.HasFlag(UseFloats.Single) &&
 				float.TryParse(num,
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var floatVal)
-				&& num.Equals(floatVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
-				&& numStrLen >= 5)
+				&& num.Equals(floatVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
 			{
 				Span<byte> buf = stackalloc byte[5];
 				buf[0] = GetWithFloatFlags(JBMType.Float32, tail0, upperE);
@@ -263,13 +266,13 @@ namespace JsonBinMin
 				return;
 			}
 
-			if (options.UseFloats.HasFlag(UseFloats.Double) &&
+			if (numStrLen >= 9 &&
+				options.UseFloats.HasFlag(UseFloats.Double) &&
 				double.TryParse(num,
 				NumberStyles.Float,
 				CultureInfo.InvariantCulture,
 				out var doubleVal)
-				&& num.Equals(doubleVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
-				&& numStrLen >= 9)
+				&& num.Equals(doubleVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
 			{
 				Span<byte> buf = stackalloc byte[9];
 				buf[0] = GetWithFloatFlags(JBMType.Float64, tail0, upperE);

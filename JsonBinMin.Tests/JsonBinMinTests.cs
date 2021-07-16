@@ -30,13 +30,18 @@ namespace JsonBinMin.Tests
 		{
 			var json = File.ReadAllText(Path.Combine("Assets", file));
 
-			var compressed = JBMConverter.Compress(json, new() { UseDict = true });
+			var options = new JBMOptions()
+			{
+				UseDict = true,
+				UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
+			};
+			var compressed = JBMConverter.Encode(json, options);
 			Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
 			Directory.CreateDirectory("Compressed");
 			File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
-			var roundtrip = JBMConverter.DecompressToString(compressed);
+			var roundtrip = JBMConverter.DecodeToString(compressed);
 
-			AssertStructuralEqual(json, roundtrip, JBMOptions.Default);
+			AssertStructuralEqual(json, roundtrip, options);
 		}
 
 		[Test]
@@ -53,7 +58,7 @@ namespace JsonBinMin.Tests
 						var formatted = $"{(neg ? "-" : "")}{val}";
 
 						var mem = new MemoryStream();
-						CompressCtx.WriteNumberValue(formatted, mem, JBMOptions.Default);
+						JBMEncoder.WriteNumberValue(formatted, mem, JBMOptions.Default);
 
 						// 1 byte type
 						long maxSize = 1;
@@ -78,6 +83,19 @@ namespace JsonBinMin.Tests
 				}
 			}
 		}
+
+		[Test]
+		public void TestCompression()
+		{
+			var file = "simple_01.json";
+			var json = File.ReadAllText(Path.Combine("Assets", file));
+
+			var options = new JBMOptions() { UseDict = true, Compress = true };
+			var compressed = JBMConverter.Encode(json, options);
+			var roundtrip = JBMConverter.DecodeToString(compressed);
+
+			AssertStructuralEqual(json, roundtrip, options);
+		}
 	}
 
 	public static class AssertUtil
@@ -94,30 +112,30 @@ namespace JsonBinMin.Tests
 			Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind);
 			switch (jsonExpected.ValueKind)
 			{
-				case JsonValueKind.Object:
-					foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
-					{
-						Assert.AreEqual(expected.Name, actual.Name);
-						AssertStructuralEqual(expected.Value, actual.Value, options);
-					}
-					break;
-				case JsonValueKind.Array:
-					foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
-						AssertStructuralEqual(expected, actual, options);
-					break;
-				case JsonValueKind.String:
-					Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString());
-					break;
-				case JsonValueKind.Number:
-					Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText());
-					break;
-				case JsonValueKind.Undefined:
-				case JsonValueKind.True:
-				case JsonValueKind.False:
-				case JsonValueKind.Null:
-					return;
-				case var unhandled:
-					throw new MissingMemberException("Missing case:" + unhandled.ToString());
+			case JsonValueKind.Object:
+				foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
+				{
+					Assert.AreEqual(expected.Name, actual.Name);
+					AssertStructuralEqual(expected.Value, actual.Value, options);
+				}
+				break;
+			case JsonValueKind.Array:
+				foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
+					AssertStructuralEqual(expected, actual, options);
+				break;
+			case JsonValueKind.String:
+				Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString());
+				break;
+			case JsonValueKind.Number:
+				Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText());
+				break;
+			case JsonValueKind.Undefined:
+			case JsonValueKind.True:
+			case JsonValueKind.False:
+			case JsonValueKind.Null:
+				return;
+			case var unhandled:
+				throw new MissingMemberException("Missing case:" + unhandled.ToString());
 			}
 		}
 	}

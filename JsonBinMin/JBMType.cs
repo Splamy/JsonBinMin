@@ -14,13 +14,14 @@
 		StringExt   = 0b0_100_1111, //            [T] [Int] ?X...?
 
 		_Block101   = 0b0_101_0000,
-		MetaDictDef = 0b0_101_0000, // [#=size] [X, Y, Z, ...]
+		MetaDictDef = 0b0_101_0000, // [T] [#=size] [X, Y, Z, ...]
 		False       = 0b0_101_0001, // [T]
 		True        = 0b0_101_0010, // [T]
 		Null        = 0b0_101_0011, // [T]
+		Compressed  = 0b0_101_0100, // [T] rest... (Only allowed as the first byte overall)
 
 		//             [D TTT KK T U] T=Type K=Kind T=Tailing'.0' U=UpperCase-'E' for exponent
-		Float16     = 0b0_101_01_0_0, // [T] ## (Not Implemented)
+		Float16     = 0b0_101_01_0_0, // [T] ##
 		Float32     = 0b0_101_10_0_0, // [T] ####
 		Float64     = 0b0_101_11_0_0, // [T] ########
 

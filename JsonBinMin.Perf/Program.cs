@@ -15,8 +15,8 @@ namespace JsonBinMin.Perf
 			var data = File.ReadAllText(Path.Combine("Assets", "test_02.json"));
 			for (int i = 0; i < 20; i++)
 			{
-				var comp = JBMConverter.Compress(data);
-				var round = JBMConverter.DecompressToString(comp);
+				var comp = JBMConverter.Encode(data);
+				var round = JBMConverter.DecodeToString(comp);
 				Console.Write(round.Substring(0, 0));
 				Console.WriteLine(i);
 			}
