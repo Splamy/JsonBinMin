@@ -142,7 +142,10 @@ namespace JsonBinMin
 		{
 			if (!options.UseDict || !dict.TryGetValue((str, DictElemKind.String), out var entry))
 				return false;
-			output.WriteByte((byte)(0x80 | entry.Index));
+			if (entry.IsIndexed)
+				output.WriteByte((byte)(0x80 | entry.Index));
+			else
+				output.Write(entry.Data);
 			return true;
 		}
 
@@ -288,7 +291,10 @@ namespace JsonBinMin
 		{
 			if (!options.UseDict || !dict.TryGetValue((num, DictElemKind.Number), out var entry))
 				return false;
-			output.WriteByte((byte)(0x80 | entry.Index));
+			if (entry.IsIndexed)
+				output.WriteByte((byte)(0x80 | entry.Index));
+			else
+				output.Write(entry.Data);
 			return true;
 		}
 

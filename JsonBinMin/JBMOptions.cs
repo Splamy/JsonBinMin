@@ -16,7 +16,7 @@ namespace JsonBinMin
 
 		public UseFloats UseFloats { get; init; } = UseFloats.Single | UseFloats.Double;
 
-		public bool Compress = false;
+		public bool Compress { get; init; } = false;
 	}
 
 	[Flags]

@@ -106,9 +106,10 @@ namespace JsonBinMin
 			if (IsFinalized)
 				return;
 
+			Dict = buildDict;
+
 			if (buildDict.Values.All(x => x.Count <= 1))
 			{
-				Dict = new();
 				DictSerialized = Array.Empty<byte>();
 				return;
 			}
@@ -125,12 +126,10 @@ namespace JsonBinMin
 			Trace.Assert(dictValues.Length <= 0x7f);
 			JBMEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), mem, options);
 
-			Dict = new();
 			for (int i = 0; i < dictValues.Length; i++)
 			{
 				var (k, v) = dictValues[i];
 				v.Index = i;
-				Dict.Add(k, v);
 				mem.Write(v.Data);
 			}
 
@@ -149,7 +148,8 @@ namespace JsonBinMin
 	{
 		public byte[] Data { get; set; }
 		public int Count { get; set; } = 0;
-		public int Index { get; set; } = 0;
+		public int Index { get; set; } = -1;
+		public bool IsIndexed => Index >= 0;
 
 		public DictEntry(byte[] data)
 		{
