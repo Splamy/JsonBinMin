@@ -11,7 +11,8 @@ namespace JsonBinMin;
 internal class DictBuilder
 {
 	private readonly MemoryStream mem = new();
-	private readonly Dictionary<(string, DictElemKind), DictEntry> buildDict = new();
+	private readonly Dictionary<string, DictEntry> buildDictNum = new();
+	private readonly Dictionary<string, DictEntry> buildDictStr = new();
 	private readonly JBMOptions options;
 
 	public bool IsFinalized => Dict != null;
@@ -30,39 +31,39 @@ internal class DictBuilder
 
 		switch (elem.ValueKind)
 		{
-			case JsonValueKind.Object:
-				var objElemems = elem.EnumerateObject().ToArray();
+		case JsonValueKind.Object:
+			var objElemems = elem.EnumerateObject().ToArray();
 
-				AddNumberToDict(objElemems.Length.ToString(CultureInfo.InvariantCulture));
+			AddNumberToDict(objElemems.Length.ToString(CultureInfo.InvariantCulture));
 
-				foreach (var kvp in objElemems)
-				{
-					AddStringToDict(kvp.Name);
-					BuildDictionary(kvp.Value);
-				}
-				break;
+			foreach (var kvp in objElemems)
+			{
+				AddStringToDict(kvp.Name);
+				BuildDictionary(kvp.Value);
+			}
+			break;
 
-			case JsonValueKind.Array:
-				var arrElemems = elem.EnumerateArray().ToArray();
+		case JsonValueKind.Array:
+			var arrElemems = elem.EnumerateArray().ToArray();
 
-				AddNumberToDict(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
+			AddNumberToDict(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
 
-				foreach (var arrItem in arrElemems)
-				{
-					BuildDictionary(arrItem);
-				}
-				break;
+			foreach (var arrItem in arrElemems)
+			{
+				BuildDictionary(arrItem);
+			}
+			break;
 
-			case JsonValueKind.String:
-				AddStringToDict(elem.GetString());
-				break;
+		case JsonValueKind.String:
+			AddStringToDict(elem.GetString());
+			break;
 
-			case JsonValueKind.Number:
-				AddNumberToDict(elem.GetRawText());
-				break;
+		case JsonValueKind.Number:
+			AddNumberToDict(elem.GetRawText());
+			break;
 
-			default:
-				break;
+		default:
+			break;
 		}
 	}
 
@@ -71,12 +72,14 @@ internal class DictBuilder
 		if (byte.TryParse(num, out var byteValue) && byteValue is >= 0 and <= 0x1F)
 			return;
 
-		mem.SetLength(0);
-		JBMEncoder.WriteNumberValue(num, mem, options);
-		var binary = mem.ToArray();
+		if (!buildDictNum.TryGetValue(num, out var de))
+		{
+			mem.SetLength(0);
+			JBMEncoder.WriteNumberValue(num, mem, options);
+			var binary = mem.ToArray();
 
-		if (!buildDict.TryGetValue((num, DictElemKind.Number), out var de))
-			buildDict[(num, DictElemKind.Number)] = de = new DictEntry(binary);
+			buildDictNum[num] = de = new DictEntry(binary);
+		}
 		de.Count++;
 	}
 
@@ -86,12 +89,14 @@ internal class DictBuilder
 
 		AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
 
-		mem.SetLength(0);
-		JBMEncoder.WriteStringValue(str, mem, options);
-		var binary = mem.ToArray();
+		if (!buildDictStr.TryGetValue(str, out var de))
+		{
+			mem.SetLength(0);
+			JBMEncoder.WriteStringValue(str, mem, options);
+			var binary = mem.ToArray();
 
-		if (!buildDict.TryGetValue((str, DictElemKind.String), out var de))
-			buildDict[(str, DictElemKind.String)] = de = new DictEntry(binary);
+			buildDictStr[str] = de = new DictEntry(binary);
+		}
 		de.Count++;
 	}
 
@@ -106,15 +111,17 @@ internal class DictBuilder
 		if (IsFinalized)
 			return;
 
-		Dict = buildDict;
+		Dict = buildDictNum.Select(x => ((x.Key, DictElemKind.Number), x.Value))
+			.Concat(buildDictStr.Select(x => ((x.Key, DictElemKind.String), x.Value)))
+			.ToDictionary(x => x.Item1, x => x.Item2);
 
-		if (buildDict.Values.All(x => x.Count <= 1))
+		if (Dict.Values.All(x => x.Count <= 1))
 		{
 			DictSerialized = Array.Empty<byte>();
 			return;
 		}
 
-		var dictValues = buildDict
+		var dictValues = Dict
 			.Where(x => x.Value.Count > 1)
 			.OrderByDescending(x => x.Value.Count * x.Value.Data.Length)
 			.Take(0x7F)

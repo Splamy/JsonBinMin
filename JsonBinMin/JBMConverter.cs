@@ -21,17 +21,20 @@ public class JBMConverter
 
 	public static byte[] Encode(string json, JBMOptions? options = null)
 	{
-		var elem = JsonSerializer.Deserialize<JsonElement>(json);
+		options ??= JBMOptions.Default;
+		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return Encode(elem, options);
 	}
 	public static byte[] Encode(byte[] json, JBMOptions? options = null)
 	{
-		var elem = JsonSerializer.Deserialize<JsonElement>(json);
+		options ??= JBMOptions.Default;
+		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return Encode(elem, options);
 	}
 	public static byte[] EncodeObject<T>(T obj, JBMOptions? options = null)
 	{
-		var bytes = JsonSerializer.SerializeToUtf8Bytes(obj);
+		options ??= JBMOptions.Default;
+		var bytes = JsonSerializer.SerializeToUtf8Bytes(obj, options.JsonSerializerOptions);
 		return Encode(bytes, options);
 	}
 	public static byte[] Encode(JsonElement elem, JBMOptions? options = null)
