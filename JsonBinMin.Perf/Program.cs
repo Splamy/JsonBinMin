@@ -20,7 +20,7 @@ namespace JsonBinMin.Perf
 				sw.Restart();
 				var comp = JBMConverter.Encode(data);
 				var round = JBMConverter.DecodeToString(comp);
-				Console.Write(round.Substring(0, 1));
+				Console.Write(round[0..1]);
 				Console.WriteLine("{0:00} in {1}", i, sw.Elapsed.TotalSeconds);
 			}
 		}

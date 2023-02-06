@@ -5,16 +5,16 @@ namespace JsonBinMin
 	internal static class Constants
 	{
 		/// <summary><code>false</code></summary>
-		public static ReadOnlySpan<byte> False => new[] { (byte)'f', (byte)'a', (byte)'l', (byte)'s', (byte)'e' };
+		public static ReadOnlySpan<byte> False => "false"u8;
 		/// <summary><code>true</code></summary>
-		public static ReadOnlySpan<byte> True => new[] { (byte)'t', (byte)'r', (byte)'u', (byte)'e' };
+		public static ReadOnlySpan<byte> True => "true"u8;
 		/// <summary><code>null</code></summary>
-		public static ReadOnlySpan<byte> Null => new[] { (byte)'n', (byte)'u', (byte)'l', (byte)'l' };
+		public static ReadOnlySpan<byte> Null => "null"u8;
 
 		/// <summary><code>0.</code></summary>
-		public static ReadOnlySpan<byte> Leading0 => new[] { (byte)'0', (byte)'.' };
+		public static ReadOnlySpan<byte> Leading0 => "0."u8;
 		/// <summary><code>.0</code></summary>
-		public static ReadOnlySpan<byte> Tailing0 => new[] { (byte)'.', (byte)'0' };
+		public static ReadOnlySpan<byte> Tailing0 => ".0"u8;
 
 		// Numbers (mostly) from https://source.dot.net/#System.Text.Json/System/Text/Json/JsonConstants.cs,141da09d6ed4b1f2
 		public const int MaximumFormatUInt8Length = 3; // i.e. 255

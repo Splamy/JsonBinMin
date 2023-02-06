@@ -12,7 +12,6 @@ using System.Text.Json;
 namespace JsonBinMin
 {
 	internal class JBMEncoder
-
 	{
 		private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
 		public readonly JBMOptions options;
