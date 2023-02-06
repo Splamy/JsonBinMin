@@ -3,14 +3,13 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("JsonBinMin.Tests")]
 
-namespace JsonBinMin
+namespace JsonBinMin;
+
+internal static class Util
 {
-	internal static class Util
+	public static void Assert(bool assure)
 	{
-		public static void Assert(bool assure)
-		{
-			if (!assure)
-				Trace.Fail("Invariant error");
-		}
+		if (!assure)
+			Trace.Fail("Invariant error");
 	}
 }

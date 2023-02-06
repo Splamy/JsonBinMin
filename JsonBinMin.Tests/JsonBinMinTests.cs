@@ -5,143 +5,142 @@ using System.Text.Json;
 using NUnit.Framework;
 using static JsonBinMin.Tests.AssertUtil;
 
-namespace JsonBinMin.Tests
+namespace JsonBinMin.Tests;
+
+[TestFixture]
+public class JsonBinMinTests
 {
-	[TestFixture]
-	public class JsonBinMinTests
+	public static readonly string[] TestFiles = new[] {
+		"simple_01.json",
+		"simple_02.json",
+		"simple_03.json",
+		"simple_04.json",
+
+		"opts_01.json",
+
+		"nums_01.json",
+		"nums_02.json",
+		"nums_03.json",
+
+		"big_01.json",
+	};
+
+	[Test, TestCaseSource(nameof(TestFiles))]
+	public void RoundTrip(string file)
 	{
-		public static readonly string[] TestFiles = new[] {
-			"simple_01.json",
-			"simple_02.json",
-			"simple_03.json",
-			"simple_04.json",
+		var json = File.ReadAllText(Path.Combine("Assets", file));
 
-			"opts_01.json",
-
-			"nums_01.json",
-			"nums_02.json",
-			"nums_03.json",
-
-			"big_01.json",
+		var options = new JBMOptions()
+		{
+			UseDict = true,
+			UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
 		};
+		var compressed = JBMConverter.Encode(json, options);
+		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
+		Directory.CreateDirectory("Compressed");
+		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
+		var roundtrip = JBMConverter.DecodeToString(compressed);
 
-		[Test, TestCaseSource(nameof(TestFiles))]
-		public void RoundTrip(string file)
-		{
-			var json = File.ReadAllText(Path.Combine("Assets", file));
-
-			var options = new JBMOptions()
-			{
-				UseDict = true,
-				UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
-			};
-			var compressed = JBMConverter.Encode(json, options);
-			Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
-			Directory.CreateDirectory("Compressed");
-			File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
-			var roundtrip = JBMConverter.DecodeToString(compressed);
-
-			AssertStructuralEqual(json, roundtrip, options);
-		}
-
-		[Test]
-		public void TestLengthsOfNumbers()
-		{
-			for (var m = 0; m <= 1; m++)
-			{
-				for (int i = 0; i < 128; i++)
-				{
-					for (int v = -1; v <= 1; v++)
-					{
-						var val = (System.Numerics.BigInteger.One << i) + v;
-						var neg = m == 1;
-						var formatted = $"{(neg ? "-" : "")}{val}";
-
-						var mem = new MemoryStream();
-						JBMEncoder.WriteNumberValue(formatted, mem, JBMOptions.Default);
-
-						// 1 byte type
-						long maxSize = 1;
-						// n bytes for bits
-						maxSize += i switch
-						{
-							< 8 => 1,
-							< 16 => 2,
-							< 24 => 3,
-							< 32 => 4,
-							< 48 => 6,
-							< 64 => 8,
-							>= 64 => (i / 7) + 1,
-						};
-
-						if (i % 8 == 0 && !neg && v == 1)
-							maxSize += 1;
-						else if (i % 8 == 0 && neg && v == -1)
-							maxSize += 1;
-						Assert.LessOrEqual(mem.Length, maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
-					}
-				}
-			}
-		}
-
-		[Test]
-		public void TestCompression()
-		{
-			var file = "simple_01.json";
-			var json = File.ReadAllText(Path.Combine("Assets", file));
-
-			var options = new JBMOptions() { UseDict = true, Compress = true };
-			var compressed = JBMConverter.Encode(json, options);
-			var roundtrip = JBMConverter.DecodeToString(compressed);
-
-			AssertStructuralEqual(json, roundtrip, options);
-		}
+		AssertStructuralEqual(json, roundtrip, options);
 	}
 
-	public static class AssertUtil
+	[Test]
+	public void TestLengthsOfNumbers()
 	{
-		public static void AssertStructuralEqual(string jsonExprected, string jsonActual, JBMOptions options)
+		for (var m = 0; m <= 1; m++)
 		{
-			var expected = JsonSerializer.Deserialize<JsonElement>(jsonExprected);
-			var actual = JsonSerializer.Deserialize<JsonElement>(jsonActual);
-			AssertStructuralEqual(expected, actual, options);
-		}
-
-		public static void AssertStructuralEqual(JsonElement jsonExpected, JsonElement jsonActual, JBMOptions options)
-		{
-			Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind);
-			switch (jsonExpected.ValueKind)
+			for (int i = 0; i < 128; i++)
 			{
-			case JsonValueKind.Object:
-				foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
+				for (int v = -1; v <= 1; v++)
 				{
-					Assert.AreEqual(expected.Name, actual.Name);
-					AssertStructuralEqual(expected.Value, actual.Value, options);
+					var val = (System.Numerics.BigInteger.One << i) + v;
+					var neg = m == 1;
+					var formatted = $"{(neg ? "-" : "")}{val}";
+
+					var mem = new MemoryStream();
+					JBMEncoder.WriteNumberValue(formatted, mem, JBMOptions.Default);
+
+					// 1 byte type
+					long maxSize = 1;
+					// n bytes for bits
+					maxSize += i switch
+					{
+						< 8 => 1,
+						< 16 => 2,
+						< 24 => 3,
+						< 32 => 4,
+						< 48 => 6,
+						< 64 => 8,
+						>= 64 => (i / 7) + 1,
+					};
+
+					if (i % 8 == 0 && !neg && v == 1)
+						maxSize += 1;
+					else if (i % 8 == 0 && neg && v == -1)
+						maxSize += 1;
+					Assert.LessOrEqual(mem.Length, maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
 				}
-				break;
-			case JsonValueKind.Array:
-				foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
-					AssertStructuralEqual(expected, actual, options);
-				break;
-			case JsonValueKind.String:
-				Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString());
-				break;
-			case JsonValueKind.Number:
-				Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText());
-				break;
-			case JsonValueKind.Undefined:
-			case JsonValueKind.True:
-			case JsonValueKind.False:
-			case JsonValueKind.Null:
-				return;
-			case var unhandled:
-				throw new MissingMemberException("Missing case:" + unhandled.ToString());
 			}
 		}
 	}
 
-	// Codecov, following here:
-	// - https://docs.microsoft.com/en-gb/dotnet/core/testing/unit-testing-code-coverage?tabs=windows
-	// dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
-	// reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage -reporttypes:Html
+	[Test]
+	public void TestCompression()
+	{
+		var file = "simple_01.json";
+		var json = File.ReadAllText(Path.Combine("Assets", file));
+
+		var options = new JBMOptions() { UseDict = true, Compress = true };
+		var compressed = JBMConverter.Encode(json, options);
+		var roundtrip = JBMConverter.DecodeToString(compressed);
+
+		AssertStructuralEqual(json, roundtrip, options);
+	}
 }
+
+public static class AssertUtil
+{
+	public static void AssertStructuralEqual(string jsonExprected, string jsonActual, JBMOptions options)
+	{
+		var expected = JsonSerializer.Deserialize<JsonElement>(jsonExprected);
+		var actual = JsonSerializer.Deserialize<JsonElement>(jsonActual);
+		AssertStructuralEqual(expected, actual, options);
+	}
+
+	public static void AssertStructuralEqual(JsonElement jsonExpected, JsonElement jsonActual, JBMOptions options)
+	{
+		Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind);
+		switch (jsonExpected.ValueKind)
+		{
+		case JsonValueKind.Object:
+			foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
+			{
+				Assert.AreEqual(expected.Name, actual.Name);
+				AssertStructuralEqual(expected.Value, actual.Value, options);
+			}
+			break;
+		case JsonValueKind.Array:
+			foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
+				AssertStructuralEqual(expected, actual, options);
+			break;
+		case JsonValueKind.String:
+			Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString());
+			break;
+		case JsonValueKind.Number:
+			Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText());
+			break;
+		case JsonValueKind.Undefined:
+		case JsonValueKind.True:
+		case JsonValueKind.False:
+		case JsonValueKind.Null:
+			return;
+		case var unhandled:
+			throw new MissingMemberException("Missing case:" + unhandled.ToString());
+		}
+	}
+}
+
+// Codecov, following here:
+// - https://docs.microsoft.com/en-gb/dotnet/core/testing/unit-testing-code-coverage?tabs=windows
+// dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+// reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage -reporttypes:Html
