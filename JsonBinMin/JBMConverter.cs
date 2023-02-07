@@ -40,7 +40,7 @@ public class JBMConverter
 	public static byte[] Encode(JsonElement elem, JBMOptions? options = null)
 	{
 		var jbm = new JBMConverter(options ?? JBMOptions.Default);
-		if (jbm.options.UseDict)
+		if (jbm.options.UseDict != UseDict.Off)
 		{
 			jbm.AddToDictionary(elem);
 			jbm.FinalizeDictionary();
@@ -60,7 +60,7 @@ public class JBMConverter
 	}
 	public void AddToDictionary(JsonElement elem)
 	{
-		if (!options.UseDict)
+		if (options.UseDict == UseDict.Off)
 			throw new NotSupportedException();
 
 		dictBuilder.BuildDictionary(elem);
@@ -68,7 +68,7 @@ public class JBMConverter
 
 	public void FinalizeDictionary()
 	{
-		if (!options.UseDict)
+		if (options.UseDict == UseDict.Off)
 			throw new NotSupportedException();
 		dictBuilder.FinalizeDictionary();
 	}
@@ -90,7 +90,7 @@ public class JBMConverter
 	}
 	public byte[] EncodeEntity(JsonElement elem)
 	{
-		if (options.UseDict)
+		if (options.UseDict != UseDict.Off)
 		{
 			FinalizeDictionary();
 		}

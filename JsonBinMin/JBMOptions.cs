@@ -22,7 +22,7 @@ public class JBMOptions
 	// <1.0> == <1>
 	//public bool AllowReduceToIntegerOpt { get; init; } = false;
 
-	public bool UseDict { get; init; } = true;
+	public UseDict UseDict { get; init; } = UseDict.Simple;
 
 	public UseFloats UseFloats { get; init; } = UseFloats.Single | UseFloats.Double;
 
@@ -38,4 +38,11 @@ public enum UseFloats
 	Half = 1 << 0,
 	Single = 1 << 1,
 	Double = 1 << 2,
+}
+
+public enum UseDict
+{
+	Off,
+	Simple,
+	Deep,
 }

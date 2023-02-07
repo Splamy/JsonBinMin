@@ -16,13 +16,13 @@ internal class JBMEncoder
 	private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
 	public readonly JBMOptions options;
 	public readonly MemoryStream output = new();
-	public readonly Dictionary<(string, DictElemKind), DictEntry> dict;
+	public readonly DictBuilder dict;
 
 	public JBMEncoder(JBMOptions options, DictBuilder dictBuilder)
 	{
 		this.options = options;
 		dictBuilder.FinalizeDictionary();
-		dict = dictBuilder.Dict!;
+		dict = dictBuilder;
 		output.Write(dictBuilder.DictSerialized);
 	}
 
@@ -104,6 +104,12 @@ internal class JBMEncoder
 
 	public bool TryWriteValueFromDict(JsonElement elem)
 	{
+		if (options.UseDict == UseDict.Deep && dict.TryGetDeepEntry(elem, out var entry) && entry.IsIndexed)
+		{
+			output.WriteByte((byte)(0x80 | entry.Index));
+			return true;
+		}
+
 		return false;
 	}
 
@@ -139,7 +145,7 @@ internal class JBMEncoder
 
 	public bool TryWriteStringFromDict(string str)
 	{
-		if (!options.UseDict || !dict.TryGetValue((str, DictElemKind.String), out var entry))
+		if (options.UseDict == UseDict.Off || !dict.TryGetString(str, out var entry))
 			return false;
 		if (entry.IsIndexed)
 			output.WriteByte((byte)(0x80 | entry.Index));
@@ -288,7 +294,7 @@ internal class JBMEncoder
 
 	public bool TryWriteNumberFromDict(string num)
 	{
-		if (!options.UseDict || !dict.TryGetValue((num, DictElemKind.Number), out var entry))
+		if (options.UseDict == UseDict.Off || !dict.TryGetNumber(num, out var entry))
 			return false;
 		if (entry.IsIndexed)
 			output.WriteByte((byte)(0x80 | entry.Index));

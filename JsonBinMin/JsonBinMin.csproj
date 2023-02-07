@@ -1,32 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;net6.0;net7.0</TargetFrameworks>
-    <LangVersion>11</LangVersion>
-    <Nullable>enable</Nullable>
-    
-    <Authors>Splamy</Authors>
-    <Description>Lossless JSON to binary encoder</Description>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageId>Splamy.JsonBinMin</PackageId>
-    <PackageProjectUrl>https://github.com/Splamy/JsonBinMin</PackageProjectUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    
-    <RepositoryUrl>https://github.com/Splamy/JsonBinMin</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <Version>1.4.0</Version>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.1;net6.0;net7.0</TargetFrameworks>
+		<LangVersion>11</LangVersion>
+		<Nullable>enable</Nullable>
 
-  <ItemGroup>
-    <None Remove="Spec.md" />
-  </ItemGroup>
+		<Authors>Splamy</Authors>
+		<Description>Lossless JSON to binary encoder</Description>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>Splamy.JsonBinMin</PackageId>
+		<PackageProjectUrl>https://github.com/Splamy/JsonBinMin</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 
-  <ItemGroup>
-    <PackageReference Include="PolySharp" Version="1.12.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Condition="'$(TargetFramework)' == 'netstandard2.1'" Include="System.Text.Json" Version="7.0.1" />
-  </ItemGroup>
+		<RepositoryUrl>https://github.com/Splamy/JsonBinMin</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<Version>1.4.0</Version>
+
+		<Features>strict</Features>
+		<AnalysisLevel>latest</AnalysisLevel>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Remove="Spec.md" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="PolySharp" Version="1.12.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Condition="'$(TargetFramework)' == 'netstandard2.1'" Include="System.Text.Json" Version="7.0.1" />
+	</ItemGroup>
 </Project>

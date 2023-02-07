@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -10,33 +11,55 @@ namespace JsonBinMin.Tests;
 [TestFixture]
 public class JsonBinMinTests
 {
-	public static readonly string[] TestFiles = new[] {
-		"simple_01.json",
-		"simple_02.json",
-		"simple_03.json",
-		"simple_04.json",
-
-		"opts_01.json",
-
-		"nums_01.json",
-		"nums_02.json",
-		"nums_03.json",
-
-		"big_01.json",
-	};
+	public static IEnumerable<object> TestFiles()
+	{
+		foreach (var useDict in Enum.GetValues<UseDict>())
+		{
+			yield return new object[] { "simple_01.json", 576, 307, 298, 298, useDict };
+			yield return new object[] { "simple_02.json", 376, 139, 114, 114, useDict };
+			yield return new object[] { "simple_03.json", 601, 311, 279, 279, useDict };
+			yield return new object[] { "simple_04.json", 3821, 2472, 2281, 2281, useDict };
+			yield return new object[] { "opts_01.json", 416, 229, 229, 229, useDict };
+			yield return new object[] { "nums_01.json", 750, 421, 421, 421, useDict };
+			yield return new object[] { "nums_02.json", 11229, 6186, 6186, 6186, useDict };
+			yield return new object[] { "nums_03.json", 18805, 10945, 10810, 10810, useDict };
+			yield return new object[] { "big_01.json", 5796673, 2500838, 782976, 782976, useDict };
+		}
+	}
 
 	[Test, TestCaseSource(nameof(TestFiles))]
-	public void RoundTrip(string file)
+	public void TestInvariants(string _file, int _originalSize, int compressedDictOff, int compressedDictSimple, int compressedDictDeep, UseDict _useDict)
 	{
-		var json = File.ReadAllText(Path.Combine("Assets", file));
+		Assert.LessOrEqual(compressedDictSimple, compressedDictOff); // Simple dict should be strictly smaller than no dict
+		Assert.LessOrEqual(compressedDictDeep, compressedDictSimple); // Deep dict should be strictly smaller than simple dict
+	}
 
+	[Test, TestCaseSource(nameof(TestFiles))]
+	public void RoundTrip(string file, int originalSize,
+		int compressedDictOff, int compressedDictSimple, int compressedDictDeep, UseDict useDict)
+	{
+		var compressedSize = useDict switch
+		{
+			UseDict.Off => compressedDictOff,
+			UseDict.Simple => compressedDictSimple,
+			UseDict.Deep => compressedDictDeep,
+			_ => throw new ArgumentOutOfRangeException(nameof(useDict), useDict, null),
+		};
+
+		var json = File.ReadAllText(Path.Combine("Assets", file));
 		var options = new JBMOptions()
 		{
-			UseDict = true,
+			UseDict = useDict,
 			UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
 		};
 		var compressed = JBMConverter.Encode(json, options);
 		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
+		Assert.AreEqual(json.Length, originalSize);
+		Assert.LessOrEqual(compressed.Length, compressedSize);
+		if (compressed.Length < compressedSize)
+		{
+			Assert.Warn("Compressed size is smaller than expected. Please update test");
+		}
 		Directory.CreateDirectory("Compressed");
 		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
@@ -85,12 +108,12 @@ public class JsonBinMinTests
 	}
 
 	[Test]
-	public void TestCompression()
+	public void TestCompression([Values] UseDict useDict)
 	{
 		var file = "simple_01.json";
 		var json = File.ReadAllText(Path.Combine("Assets", file));
 
-		var options = new JBMOptions() { UseDict = true, Compress = true };
+		var options = new JBMOptions() { UseDict = useDict, Compress = true };
 		var compressed = JBMConverter.Encode(json, options);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 

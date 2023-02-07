@@ -135,7 +135,8 @@ internal class JBMDecoder
 		return false;
 	}
 
-	public static MemoryStream Decompress(ReadOnlySpan<byte> data) {
+	public static MemoryStream Decompress(ReadOnlySpan<byte> data)
+	{
 		var mem = new MemoryStream(Math.Max(8192, data.Length * 2));
 		var bd = new BrotliDecoder();
 		Span<byte> buffer = stackalloc byte[8192];

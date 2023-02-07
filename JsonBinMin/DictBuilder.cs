@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -15,14 +16,13 @@ internal class DictBuilder
 	private readonly Dictionary<string, DictEntry> buildDictStr = new();
 	private readonly JBMOptions options;
 
-	public bool IsFinalized => Dict != null;
+	public bool IsFinalized { get; private set; } = false;
 
 	public DictBuilder(JBMOptions options)
 	{
 		this.options = options;
 	}
 
-	public Dictionary<(string, DictElemKind), DictEntry>? Dict { get; private set; }
 	public byte[]? DictSerialized { get; private set; }
 
 	public void BuildDictionary(JsonElement elem)
@@ -110,23 +110,23 @@ internal class DictBuilder
 	{
 		if (IsFinalized)
 			return;
+		IsFinalized = true;
 
-		Dict = buildDictNum.Select(x => ((x.Key, DictElemKind.Number), x.Value))
-			.Concat(buildDictStr.Select(x => ((x.Key, DictElemKind.String), x.Value)))
-			.ToDictionary(x => x.Item1, x => x.Item2);
+		var dictValues = Enumerable.Empty<(string Key, DictEntry Entry, DictElemKind Kind)>()
+			.Concat(buildDictNum.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.Number)))
+			.Concat(buildDictStr.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.String)))
+			.Where(x => x.Entry.Count * x.Entry.Data.Length > x.Entry.Count + x.Entry.Data.Length)
+			.OrderByDescending(x => x.Entry.Count * x.Entry.Data.Length)
+			.Take(0x7F)
+			.OrderBy(x => x.Kind)
+			.Select(x => x.Entry)
+			.ToArray();
 
-		if (Dict.Values.All(x => x.Count <= 1))
+		if (dictValues.Length == 0)
 		{
 			DictSerialized = Array.Empty<byte>();
 			return;
 		}
-
-		var dictValues = Dict
-			.Where(x => x.Value.Count > 1)
-			.OrderByDescending(x => x.Value.Count * x.Value.Data.Length)
-			.Take(0x7F)
-			.OrderBy(x => x.Key.Item2)
-			.ToArray();
 
 		mem.SetLength(0);
 		mem.WriteByte((byte)JBMType.MetaDictDef);
@@ -135,19 +135,44 @@ internal class DictBuilder
 
 		for (int i = 0; i < dictValues.Length; i++)
 		{
-			var (k, v) = dictValues[i];
-			v.Index = i;
-			mem.Write(v.Data);
+			var entry = dictValues[i];
+			entry.Index = i;
+			mem.Write(entry.Data);
 		}
 
 		DictSerialized = mem.ToArray();
 	}
-}
 
-internal enum DictElemKind
-{
-	Number, // Do not move! Number needs to lower than other values
-	String,
+	private void CheckFinalized()
+	{
+		if (!IsFinalized)
+			throw new InvalidOperationException();
+	}
+
+	public bool TryGetString(string key, [MaybeNullWhen(false)] out DictEntry entry)
+	{
+		CheckFinalized();
+		return buildDictStr.TryGetValue(key, out entry);
+	}
+
+	public bool TryGetNumber(string key, [MaybeNullWhen(false)] out DictEntry entry)
+	{
+		CheckFinalized();
+		return buildDictNum.TryGetValue(key, out entry);
+	}
+
+	public bool TryGetDeepEntry(JsonElement key, [MaybeNullWhen(false)] out DictEntry entry)
+	{
+		CheckFinalized();
+		entry = default;
+		return false;
+	}
+
+	internal enum DictElemKind
+	{
+		Number, // Do not move! Number needs to lower than other values
+		String,
+	}
 }
 
 [DebuggerDisplay("{Count, nq} @{Index, nq}")]
