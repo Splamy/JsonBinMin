@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using NUnit.Framework;
 using static JsonBinMin.Tests.AssertUtil;
@@ -118,6 +120,37 @@ public class JsonBinMinTests
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
 		AssertStructuralEqual(json, roundtrip, options);
+	}
+
+	[Test]
+	public void HalfIsBetterForAtLeastOneNumber()
+	{
+		var optWithHalf = new JBMOptions() { UseFloats = UseFloats.Half };
+
+		static bool IsHalfEncoded(byte[] data) => data.Length == 3 && data[0] == (byte)JBMType.Float16;
+		var mem = new MemoryStream();
+
+		var found = new List<Half>();
+
+		for (ushort i = 0; i < ushort.MaxValue; i++)
+		{
+			var half = Unsafe.As<ushort, Half>(ref i);
+			if (Half.IsNaN(half) || Half.IsInfinity(half))
+				continue;
+			var halfStr = half.ToString(CultureInfo.InvariantCulture);
+
+			mem.SetLength(0);
+			JBMEncoder.WriteNumberValue(halfStr, mem, optWithHalf);
+			var enc = mem.ToArray();
+
+			if (IsHalfEncoded(enc))
+			{
+				found.Add(half);
+			}
+		}
+
+		if (found.Count == 0)
+			Assert.Fail();
 	}
 }
 
