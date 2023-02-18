@@ -34,8 +34,8 @@ public class JBMConverter
 	public static byte[] EncodeObject<T>(T obj, JBMOptions? options = null)
 	{
 		options ??= JBMOptions.Default;
-		var bytes = JsonSerializer.SerializeToUtf8Bytes(obj, options.JsonSerializerOptions);
-		return Encode(bytes, options);
+		var elem = JsonSerializer.SerializeToElement(obj, options.JsonSerializerOptions);
+		return Encode(elem, options);
 	}
 	public static byte[] Encode(JsonElement elem, JBMOptions? options = null)
 	{
@@ -75,18 +75,18 @@ public class JBMConverter
 
 	public byte[] EncodeEntity(string json)
 	{
-		var elem = JsonSerializer.Deserialize<JsonElement>(json);
+		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return EncodeEntity(elem);
 	}
 	public byte[] EncodeEntity(byte[] json)
 	{
-		var elem = JsonSerializer.Deserialize<JsonElement>(json);
+		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return EncodeEntity(elem);
 	}
 	public byte[] EncodeEntityObject<T>(T obj)
 	{
-		var bytes = JsonSerializer.SerializeToUtf8Bytes(obj);
-		return EncodeEntity(bytes);
+		var elem = JsonSerializer.SerializeToElement(obj, options.JsonSerializerOptions);
+		return EncodeEntity(elem);
 	}
 	public byte[] EncodeEntity(JsonElement elem)
 	{
@@ -101,11 +101,12 @@ public class JBMConverter
 		{
 			var sourceStream = ctx.output;
 			sourceStream.Position = 0;
+			int sourceLength = (int)sourceStream.Length;
 
-			var rawJbmBuffer = ArrayPool<byte>.Shared.Rent((int)sourceStream.Length);
-			var rawJbm = rawJbmBuffer.AsSpan(0, (int)sourceStream.Length);
-			var maxSize = BrotliEncoder.GetMaxCompressedLength(rawJbm.Length);
-			var outputBuffer = ArrayPool<byte>.Shared.Rent(maxSize + 1);
+			var maxOutputSize = BrotliEncoder.GetMaxCompressedLength(sourceLength);
+			var rawJbmBuffer = ArrayPool<byte>.Shared.Rent(sourceLength);
+			var rawJbm = rawJbmBuffer.AsSpan(0, sourceLength);
+			var outputBuffer = ArrayPool<byte>.Shared.Rent(maxOutputSize + 1);
 			var output = outputBuffer.AsSpan();
 
 			try

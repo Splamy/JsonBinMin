@@ -35,6 +35,7 @@ public class JBMOptions
 public enum UseFloats
 {
 	None = 0,
+	All = Half | Single | Double,
 	Half = 1 << 0,
 	Single = 1 << 1,
 	Double = 1 << 2,
