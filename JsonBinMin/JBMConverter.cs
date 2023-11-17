@@ -7,17 +7,12 @@ using System.Text.Json;
 
 namespace JsonBinMin;
 
-public class JBMConverter
+public class JBMConverter(JBMOptions options)
 {
-	private readonly DictBuilder dictBuilder;
-	private readonly JBMOptions options;
+	private readonly DictBuilder dictBuilder = new(options);
+	private readonly JBMOptions options = options;
 
 	public JBMConverter() : this(JBMOptions.Default) { }
-	public JBMConverter(JBMOptions options)
-	{
-		dictBuilder = new(options);
-		this.options = options;
-	}
 
 	public static byte[] Encode(string json, JBMOptions? options = null)
 	{

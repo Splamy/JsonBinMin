@@ -9,19 +9,13 @@ using System.Text.Json;
 
 namespace JsonBinMin;
 
-internal class DictBuilder
+internal class DictBuilder(JBMOptions options)
 {
 	private readonly MemoryStream mem = new();
-	private readonly Dictionary<string, DictEntry> buildDictNum = new();
-	private readonly Dictionary<string, DictEntry> buildDictStr = new();
-	private readonly JBMOptions options;
+	private readonly Dictionary<string, DictEntry> buildDictNum = [];
+	private readonly Dictionary<string, DictEntry> buildDictStr = [];
 
 	public bool IsFinalized { get; private set; } = false;
-
-	public DictBuilder(JBMOptions options)
-	{
-		this.options = options;
-	}
 
 	public byte[]? DictSerialized { get; private set; }
 
@@ -32,26 +26,26 @@ internal class DictBuilder
 		switch (elem.ValueKind)
 		{
 		case JsonValueKind.Object:
-			var objElemems = elem.EnumerateObject().ToArray();
-
-			AddNumberToDict(objElemems.Length.ToString(CultureInfo.InvariantCulture));
-
-			foreach (var kvp in objElemems)
+			int propCount = 0;
+			foreach (var kvp in elem.EnumerateObject())
 			{
 				AddStringToDict(kvp.Name);
 				BuildDictionary(kvp.Value);
+				propCount++;
 			}
+
+			AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
 			break;
 
 		case JsonValueKind.Array:
-			var arrElemems = elem.EnumerateArray().ToArray();
-
-			AddNumberToDict(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
-
-			foreach (var arrItem in arrElemems)
+			int arrCount = 0;
+			foreach (var arrItem in elem.EnumerateArray())
 			{
 				BuildDictionary(arrItem);
+				arrCount++;
 			}
+
+			AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
 			break;
 
 		case JsonValueKind.String:
@@ -124,7 +118,7 @@ internal class DictBuilder
 
 		if (dictValues.Length == 0)
 		{
-			DictSerialized = Array.Empty<byte>();
+			DictSerialized = [];
 			return;
 		}
 
@@ -176,15 +170,10 @@ internal class DictBuilder
 }
 
 [DebuggerDisplay("{Count, nq} @{Index, nq}")]
-internal class DictEntry
+internal class DictEntry(byte[] data)
 {
-	public byte[] Data { get; set; }
+	public byte[] Data { get; set; } = data;
 	public int Count { get; set; } = 0;
 	public int Index { get; set; } = -1;
 	public bool IsIndexed => Index >= 0;
-
-	public DictEntry(byte[] data)
-	{
-		Data = data;
-	}
 }

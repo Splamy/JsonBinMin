@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
@@ -168,70 +171,92 @@ internal class JBMEncoder
 		var numNeg = num.StartsWith("-");
 		var posNum = numNeg ? num[1..] : num;
 
-		if (ulong.TryParse(posNum, out var integerVal))
+		if (ulong.TryParse(posNum, NumberStyles.None, CultureInfo.InvariantCulture, out var integerVal))
 		{
 			switch (integerVal)
 			{
-			case <= 0x1F when !numNeg:
+			case <= Constants.JbmIntInlineMaxValue when !numNeg:
 				output.WriteByte((byte)((byte)JBMType.IntInline | integerVal));
 				return;
-			case <= byte.MaxValue:
+			case <= Constants.JbmInt8MaxValue:
 				{
-					Span<byte> buf = stackalloc byte[2] { GetWithNegativeFlag(JBMType.Int8, numNeg), (byte)integerVal };
+					ReadOnlySpan<byte> buf = [GetWithNegativeFlag(JBMType.Int8, numNeg), (byte)(integerVal - Constants.JbmInt8Offset)];
 					output.Write(buf);
 					return;
 				}
-			case <= ushort.MaxValue:
+			case <= Constants.JbmInt16MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[3];
 					buf[0] = GetWithNegativeFlag(JBMType.Int16, numNeg);
-					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)integerVal);
+					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(integerVal - Constants.JbmInt16Offset));
 					output.Write(buf);
 					return;
 				}
-			case <= Constants.U24MaxValue:
+			case <= Constants.JbmInt24MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[4];
 					buf[0] = GetWithNegativeFlag(JBMType.Int24, numNeg);
-					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(integerVal & 0xFFFF));
-					buf[3] = (byte)((integerVal >> 16) & 0xFF);
+					var offsetVal = integerVal - Constants.JbmInt24Offset;
+					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(offsetVal & 0xFFFF));
+					buf[3] = (byte)((offsetVal >> 16) & 0xFF);
 					output.Write(buf);
 					return;
 				}
-			case <= uint.MaxValue:
+			case <= Constants.JbmInt32MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[5];
 					buf[0] = GetWithNegativeFlag(JBMType.Int32, numNeg);
-					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)integerVal);
+					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(integerVal - Constants.JbmInt32Offset));
 					output.Write(buf);
 					return;
 				}
-			case <= Constants.U48MaxValue:
+			case <= Constants.JbmInt48MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[7];
 					buf[0] = GetWithNegativeFlag(JBMType.Int48, numNeg);
-					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(integerVal & 0xFFFFFFFF));
-					BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)((integerVal >> 32) & 0xFFFF));
+					var offsetVal = integerVal - Constants.JbmInt48Offset;
+					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(offsetVal & 0xFFFFFFFF));
+					BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)((offsetVal >> 32) & 0xFFFF));
 					output.Write(buf);
 					return;
 				}
-			case <= ulong.MaxValue:
-				{
-					Span<byte> buf = stackalloc byte[9];
-					buf[0] = GetWithNegativeFlag(JBMType.Int64, numNeg);
-					BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], (ulong)integerVal);
-					output.Write(buf);
-					return;
-				}
-
-			default:
-				throw new InvalidOperationException();
 			}
 		}
 
-		if (TryGetNumRle(num) is not null and var rle)
+		if (BigInteger.TryParse(posNum, out var bi))
 		{
-			output.Write(rle);
+			if (bi <= Constants.JbmInt64MaxValue)
+			{
+				Span<byte> buf = stackalloc byte[9];
+				buf[0] = GetWithNegativeFlag(JBMType.Int64, numNeg);
+				BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], (ulong)(bi - Constants.JbmInt64Offset));
+				output.Write(buf);
+				return;
+			}
+			else
+			{
+				var buf = new List<byte>();
+
+				bi -= Constants.JbmIntRleOffset;
+				Debug.Assert(bi >= 0);
+
+				while (bi > 0)
+				{
+					var b = (byte)(bi & 0x7F);
+					bi >>= 7;
+					buf.Add(b);
+				}
+				for (int i = 1; i < buf.Count; i++) buf[i] |= 0x80;
+				buf.Add(GetWithNegativeFlag(JBMType.IntRle, numNeg));
+				buf.Reverse();
+
+#if NET5_0_OR_GREATER
+				output.Write(CollectionsMarshal.AsSpan(buf));
+#else
+				output.Write(buf.ToArray());
+#endif
+			}
+
 			return;
 		}
 
@@ -288,7 +313,6 @@ internal class JBMEncoder
 			output.Write(buf);
 			return;
 		}
-
 		output.Write(numStr);
 	}
 
@@ -307,31 +331,6 @@ internal class JBMEncoder
 	private static byte GetWithFloatFlags(JBMType t, bool tail0, bool upper)
 		=> (byte)((byte)t | (tail0 ? 2 : 0) | (upper ? 1 : 0));
 
-	public static byte[]? TryGetNumRle(ReadOnlySpan<char> num)
-	{
-		if (!BigInteger.TryParse(num, out var bi))
-			return null;
-
-		var buf = new List<byte>();
-		bool neg = false;
-		if (bi < 0)
-		{
-			neg = true;
-			bi = -bi;
-		}
-
-		while (bi > 0)
-		{
-			var b = (byte)(bi & 0x7F);
-			bi >>= 7;
-			buf.Add(b);
-		}
-		for (int i = 1; i < buf.Count; i++) buf[i] |= 0x80;
-		buf.Reverse();
-		buf.Insert(0, GetWithNegativeFlag(JBMType.IntRle, neg));
-		return buf.ToArray();
-	}
-
 	public static byte[] GetNumStr(ReadOnlySpan<char> num)
 	{
 		// 0 - 9 : '0' - '9'
@@ -344,6 +343,11 @@ internal class JBMEncoder
 
 		bool neg = num.StartsWith("-");
 		if (neg) num = num[1..];
+
+		if (num is ['0', '.', '0'])
+		{
+			return [(byte)((byte)JBMType.NumStr | 4 | 2 | (neg ? 1 : 0))];
+		}
 
 		bool lead0 = num.StartsWith("0.", StringComparison.Ordinal);
 		if (lead0) num = num[2..];

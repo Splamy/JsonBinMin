@@ -14,12 +14,6 @@ internal enum JBMType : byte
 	StringExt   = 0b0_100_1111, //            [T] [Int] ?X...?
 
 	_Block101   = 0b0_101_0000,
-	MetaDictDef = 0b0_101_0000, // [T] [#=size] [X, Y, Z, ...]
-	False       = 0b0_101_0001, // [T]
-	True        = 0b0_101_0010, // [T]
-	Null        = 0b0_101_0011, // [T]
-	Compressed  = 0b0_101_0100, // [T] rest... (Only allowed as the first byte overall)
-
 	//             [D TTT KK T U] T=Type K=Kind T=Tailing'.0' U=UpperCase-'E' for exponent
 	Float16     = 0b0_101_01_0_0, // [T] ##
 	Float32     = 0b0_101_10_0_0, // [T] ####
@@ -35,7 +29,16 @@ internal enum JBMType : byte
 	Int64       = 0b0_110_101_0, // [T] ########
 	IntRle      = 0b0_110_111_0, // [T] ?X...?
 
-	//             [D TTT _ L T N] T=Type _=Unused L=Leading'0.' T=Tailing'.0' N=Negative
-	NumStr      = 0b0_111_0_0_0_0, // [T] ?NumStr...?
+	_Block111   = 0b0_111_000_0,
+	//             [D TTTT L T N] T=Type _=Unused L=Leading'0.' T=Tailing'.0' N=Negative
+	NumStr      = 0b0_1110_0_0_0, // [T] ?NumStr...?
+
+	//             [D TTTT KKK] T=Type K=Kind
+	False       = 0b0_1111_000, // [T]
+	True        = 0b0_1111_001, // [T]
+	Null        = 0b0_1111_010, // [T]
+	MetaDictDef = 0b0_1111_100, // [T] [#=size] [X, Y, Z, ...]
+	Compressed  = 0b0_1111_101, // [T] rest... (Only allowed as the first byte overall)
+
 	// B64Str,HexStr ?
 }

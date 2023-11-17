@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 
 namespace JsonBinMin;
 
@@ -15,6 +16,8 @@ internal static class Constants
 	public static ReadOnlySpan<byte> Leading0 => "0."u8;
 	/// <summary><code>.0</code></summary>
 	public static ReadOnlySpan<byte> Tailing0 => ".0"u8;
+	/// <summary><code>.0</code></summary>
+	public static ReadOnlySpan<byte> Float0 => "0.0"u8;
 
 	// Numbers (mostly) from https://source.dot.net/#System.Text.Json/System/Text/Json/JsonConstants.cs,141da09d6ed4b1f2
 	public const int MaximumFormatUInt8Length = 3; // i.e. 255
@@ -28,4 +31,20 @@ internal static class Constants
 
 	public const uint U24MaxValue = (1U << 24) - 1;
 	public const ulong U48MaxValue = (1UL << 48) - 1;
+
+	public const uint JbmIntInlineMaxValue = 31;
+	public const uint JbmInt8MaxValue = byte.MaxValue;
+	public const uint JbmInt16MaxValue = JbmInt16Offset + ushort.MaxValue;
+	public const uint JbmInt24MaxValue = JbmInt24Offset + U24MaxValue;
+	public const ulong JbmInt32MaxValue = (ulong)JbmInt32Offset + (ulong)uint.MaxValue;
+	public const ulong JbmInt48MaxValue = JbmInt48Offset + U48MaxValue;
+	public static readonly BigInteger JbmInt64MaxValue = new BigInteger(JbmInt64Offset) + new BigInteger(ulong.MaxValue);
+
+	public const uint JbmInt8Offset = 0;
+	public const uint JbmInt16Offset = JbmInt8MaxValue + 1;
+	public const uint JbmInt24Offset = JbmInt16MaxValue + 1;
+	public const uint JbmInt32Offset = JbmInt24MaxValue + 1;
+	public const ulong JbmInt48Offset = JbmInt32MaxValue + 1;
+	public const ulong JbmInt64Offset = JbmInt48MaxValue + 1;
+	public static readonly BigInteger JbmIntRleOffset = JbmInt64MaxValue + 1;
 }

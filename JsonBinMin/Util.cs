@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("JsonBinMin.Tests")]
+[assembly: InternalsVisibleTo("JsonBinMin.Analysis")]
 
 namespace JsonBinMin;
 
