@@ -27,7 +27,7 @@ internal enum JBMType : byte
 	Int32       = 0b0_110_011_0, // [T] ####
 	Int48       = 0b0_110_100_0, // [T] ###### = [IIII][SS] LSB -> MSB
 	Int64       = 0b0_110_101_0, // [T] ########
-	IntRle      = 0b0_110_111_0, // [T] ?X...?
+	IntRle      = 0b0_110_111_0, // [T] [rle-count] X*count
 
 	_Block111   = 0b0_111_000_0,
 	//             [D TTTT L T N] T=Type _=Unused L=Leading'0.' T=Tailing'.0' N=Negative

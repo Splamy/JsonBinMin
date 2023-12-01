@@ -221,15 +221,12 @@ internal partial class JBMDecoder
 		{
 		case JBMType.Float16:
 			{
-#if NET5_0_OR_GREATER
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
-				// https://source.dot.net/#System.Private.CoreLib/BitConverter.cs,573
-				var val = Unsafe.ReadUnaligned<Half>(ref MemoryMarshal.GetReference(data[1..]));
+				var val = BitConverter.ToHalf(data[1..]);
 				var written = Encoding.UTF8.GetBytes(val.ToString(CultureInfo.InvariantCulture), buf);
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0) output.Write(Constants.Tailing0);
-#endif
 				rest = data[3..];
 				return;
 			}
@@ -332,20 +329,13 @@ internal partial class JBMDecoder
 			}
 		case JBMType.IntRle:
 			{
-				// [0XXX_XXXX] 1 byte
-				// [1XXX_XXXX] [0XXX_XXXX] 2 byte ...
-				int rleOff = 1;
-				var intAcc = new BigInteger();
-				do
-				{
-					intAcc <<= 7;
-					intAcc |= data[rleOff] & 0b0111_1111;
-				} while ((data[rleOff++] & 0x80) != 0);
 				WriteSignByFlag(output, pick);
+				var byteLen = (int)ReadRleNum(data, out data);
+				var intAcc = new BigInteger(data[..byteLen], true);
 				intAcc += Constants.JbmIntRleOffset;
 				foreach (var c in intAcc.ToString(CultureInfo.InvariantCulture))
 					output.WriteByte((byte)c);
-				rest = data[rleOff..];
+				rest = data[byteLen..];
 				return;
 			}
 		default:
@@ -360,6 +350,20 @@ internal partial class JBMDecoder
 		}
 	}
 
+	private static BigInteger ReadRleNum(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
+	{
+		// [0XXX_XXXX] 1 byte
+		// [1XXX_XXXX] [0XXX_XXXX] 2 byte ...
+		int rleOff = 1;
+		var intAcc = new BigInteger();
+		do
+		{
+			intAcc <<= 7;
+			intAcc |= data[rleOff] & 0b0111_1111;
+		} while ((data[rleOff++] & 0x80) != 0);
+		rest = data[rleOff..];
+		return intAcc;
+	}
 
 	public uint ReadNumberToInt(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 	{

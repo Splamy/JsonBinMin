@@ -22,7 +22,7 @@ public class JsonBinMinTests
 			yield return new object[] { "simple_03.json", 601, 311, 279, 279, useDict };
 			yield return new object[] { "simple_04.json", 3821, 2472, 2281, 2281, useDict };
 			yield return new object[] { "opts_01.json", 416, 229, 229, 229, useDict };
-			yield return new object[] { "nums_01.json", 750, 421, 421, 421, useDict };
+			yield return new object[] { "nums_01.json", 750, 419, 419, 419, useDict };
 			yield return new object[] { "nums_02.json", 11229, 6154, 6154, 6154, useDict };
 			yield return new object[] { "nums_03.json", 18805, 10945, 10810, 10810, useDict };
 			yield return new object[] { "big_01.json", 5796673, 2500838, 782976, 782976, useDict };

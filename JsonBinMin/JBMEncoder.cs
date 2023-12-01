@@ -6,7 +6,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -234,26 +233,17 @@ internal class JBMEncoder
 			}
 			else
 			{
-				var buf = new List<byte>();
-
 				bi -= Constants.JbmIntRleOffset;
 				Debug.Assert(bi >= 0);
 
-				while (bi > 0)
-				{
-					var b = (byte)(bi & 0x7F);
-					bi >>= 7;
-					buf.Add(b);
-				}
-				for (int i = 1; i < buf.Count; i++) buf[i] |= 0x80;
-				buf.Add(GetWithNegativeFlag(JBMType.IntRle, numNeg));
-				buf.Reverse();
+				var byteLength = bi.GetByteCount(true);
 
-#if NET5_0_OR_GREATER
-				output.Write(CollectionsMarshal.AsSpan(buf));
-#else
-				output.Write(buf.ToArray());
-#endif
+				var buffer = new byte[1 + 5 + byteLength].AsSpan();
+				buffer[0] = GetWithNegativeFlag(JBMType.IntRle, numNeg);
+				Util.Assert(TryWriteRleNum(buffer[1..], new BigInteger(byteLength), out var w1));
+				Util.Assert(bi.TryWriteBytes(buffer[(1 + w1)..], out var w2, true));
+
+				output.Write(buffer[..(1 + w1 + w2)]);
 			}
 
 			return;
@@ -266,29 +256,21 @@ internal class JBMEncoder
 		var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
 		if (tail0) num = num[..^2];
 
-#if NET5_0_OR_GREATER
 		if (numStrLen >= 3
-			&& options.UseFloats.HasFlag(UseFloats.Half) &&
-			Half.TryParse(num,
-			NumberStyles.Float,
-			CultureInfo.InvariantCulture,
-			out var halfVal)
+			&& options.UseFloats.HasFlag(UseFloats.Half)
+			&& Half.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var halfVal)
 			&& num.Equals(halfVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
 		{
 			Span<byte> buf = stackalloc byte[3];
 			buf[0] = GetWithFloatFlags(JBMType.Float16, tail0, upperE);
-			// https://source.dot.net/#System.Private.CoreLib/BitConverter.cs,256
-			Unsafe.As<byte, Half>(ref buf[1]) = halfVal;
+			Util.Assert(BitConverter.TryWriteBytes(buf[1..], halfVal));
 			output.Write(buf);
 			return;
 		}
-#endif
-		if (numStrLen >= 5 &&
-			options.UseFloats.HasFlag(UseFloats.Single) &&
-			float.TryParse(num,
-			NumberStyles.Float,
-			CultureInfo.InvariantCulture,
-			out var floatVal)
+
+		if (numStrLen >= 5
+			&& options.UseFloats.HasFlag(UseFloats.Single)
+			&& float.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatVal)
 			&& num.Equals(floatVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
 		{
 			Span<byte> buf = stackalloc byte[5];
@@ -298,12 +280,9 @@ internal class JBMEncoder
 			return;
 		}
 
-		if (numStrLen >= 9 &&
-			options.UseFloats.HasFlag(UseFloats.Double) &&
-			double.TryParse(num,
-			NumberStyles.Float,
-			CultureInfo.InvariantCulture,
-			out var doubleVal)
+		if (numStrLen >= 9
+			&& options.UseFloats.HasFlag(UseFloats.Double)
+			&& double.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleVal)
 			&& num.Equals(doubleVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
 		{
 			Span<byte> buf = stackalloc byte[9];
@@ -313,6 +292,32 @@ internal class JBMEncoder
 			return;
 		}
 		output.Write(numStr);
+	}
+
+	private static bool TryWriteRleNum(Span<byte> data, BigInteger bi, out int written)
+	{
+		Debug.Assert(bi >= 0);
+		var buf = new List<byte>();
+
+		while (bi > 0)
+		{
+			var b = (byte)(bi & 0x7F);
+			bi >>= 7;
+			buf.Add(b);
+		}
+
+		if (buf.Count > data.Length)
+		{
+			written = 0;
+			return false;
+		}
+
+		for (int i = 1; i < buf.Count; i++) buf[i] |= 0x80;
+		buf.Reverse();
+
+		CollectionsMarshal.AsSpan(buf).CopyTo(data);
+		written = buf.Count;
+		return true;
 	}
 
 	public bool TryWriteNumberFromDict(string num)
