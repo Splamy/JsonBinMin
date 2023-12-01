@@ -20,7 +20,7 @@ public class JBMConverter(JBMOptions options)
 		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return Encode(elem, options);
 	}
-	public static byte[] Encode(byte[] json, JBMOptions? options = null)
+	public static byte[] Encode(ReadOnlySpan<byte> json, JBMOptions? options = null)
 	{
 		options ??= JBMOptions.Default;
 		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
@@ -85,10 +85,6 @@ public class JBMConverter(JBMOptions options)
 	}
 	public byte[] EncodeEntity(JsonElement elem)
 	{
-		if (options.UseDict != UseDict.Off)
-		{
-			FinalizeDictionary();
-		}
 		var ctx = new JBMEncoder(options, dictBuilder);
 		ctx.WriteValue(elem);
 

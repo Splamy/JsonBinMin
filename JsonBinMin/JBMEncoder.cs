@@ -8,7 +8,6 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
@@ -44,7 +43,7 @@ internal class JBMEncoder
 		case JsonValueKind.Object:
 			var objElemems = elem.EnumerateObject().ToArray();
 
-			if (objElemems.Length < 0xF)
+			if (objElemems.Length <= Constants.SqueezedInlineMaxValue)
 			{
 				output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
 			}
@@ -64,7 +63,7 @@ internal class JBMEncoder
 		case JsonValueKind.Array:
 			var arrElemems = elem.EnumerateArray().ToArray();
 
-			if (arrElemems.Length < 0xF)
+			if (arrElemems.Length <= Constants.SqueezedInlineMaxValue)
 			{
 				output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
 			}

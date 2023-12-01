@@ -39,7 +39,11 @@ internal class AnalysisReport
 	public void WriteReport(StringBuilder sb)
 	{
 		sb.AppendLine("Total tokens: " + TotalTokenCount);
-		sb.AppendLine("Dict tokens: " + DictTokenCount);
+		sb.Append("Dict tokens: " + DictTokenCount)
+			.Append(" (")
+			.AppendFormat(CultureInfo.InvariantCulture, "{0:P2}", (double)DictTokenCount / TotalTokenCount)
+			.Append(')')
+			.AppendLine();
 		sb.AppendLine("Dict elements: " + DictElementsCount);
 		sb.AppendLine("Types:")
 			.AppendLine(TypeCounts

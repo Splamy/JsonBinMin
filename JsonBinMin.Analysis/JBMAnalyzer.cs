@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic;
-using static JsonBinMin.JBMDecoder;
+﻿using static JsonBinMin.JBMDecoder;
 
 namespace JsonBinMin.Analysis;
 
@@ -114,11 +113,10 @@ internal class JBMAnalyzer
 				report.TrackInteger(JBMType.Int64, 2);
 				break;
 			case JBMType.IntRle:
-				int rleOff = 1;
-				do { } while ((data[rleOff++] & 0x80) != 0);
-
+				ReadBlock110(Stream.Null, data, out var read);
+				var len = data.Length - read.Length;
 				report.TrackType(JBMType.IntRle);
-				report.TrackInteger(JBMType.IntRle, rleOff);
+				report.TrackInteger(JBMType.IntRle, len);
 				break;
 			}
 			decoder.Parse(data, out rest);
@@ -126,31 +124,11 @@ internal class JBMAnalyzer
 
 		case DecodePoint.NumStr:
 			{
-				int nsOff = 1;
+				ReadNumStr(Stream.Null, data, out rest);
 
-				while (true)
-				{
-					var b = data[nsOff++];
-
-					if (!(Get((byte)(b >> 4)) is { } bFirst)) break;
-					if (!(Get((byte)(b & 0xF)) is { } bSecond)) break;
-
-					static byte? Get(byte val) => val switch
-					{
-						>= 0 and <= 9 => (byte)('0' + val),
-						0xA => (byte)'+',
-						0xB => (byte)'-',
-						0xC => (byte)'.',
-						0xD => (byte)'e',
-						0xE => (byte)'E',
-						0xF => null,
-						_ => throw new InvalidDataException(),
-					};
-				}
-
+				var len = data.Length - rest.Length;
 				report.TrackType(JBMType.NumStr);
-				report.TrackInteger(JBMType.NumStr, nsOff);
-				decoder.Parse(data, out rest);
+				report.TrackInteger(JBMType.NumStr, len);
 				return false;
 			}
 
@@ -172,20 +150,9 @@ internal class JBMAnalyzer
 		case DecodePoint.MetaDictDef:
 			{
 				report.TrackType(JBMType.MetaDictDef);
-				Analyze(data[1..]);
-				var dictSize = (int)decoder.ReadNumberToInt(data[1..], out data);
-				report.DictElementsCount = dictSize;
-				var dict = new byte[dictSize][];
-				var dictCtx = new JBMDecoder
-				{
-					Dict = dict // allow in-self referential dict entries
-				};
-				for (int i = 0; i < dictSize; i++)
-				{
-					dictCtx.Output.SetLength(0);
-					dictCtx.Parse(data, out data);
-				}
-				rest = data;
+
+				decoder.Parse(data, out rest);
+				report.DictElementsCount = decoder.Dict.Length;
 				return true;
 			}
 

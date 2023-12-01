@@ -26,27 +26,27 @@ internal class DictBuilder(JBMOptions options)
 		switch (elem.ValueKind)
 		{
 		case JsonValueKind.Object:
-			int propCount = 0;
-			foreach (var kvp in elem.EnumerateObject())
-			{
+				int propCount = 0;
+				foreach (var kvp in elem.EnumerateObject())
+				{
 				AddStringToDict(kvp.Name);
-				BuildDictionary(kvp.Value);
-				propCount++;
-			}
+					BuildDictionary(kvp.Value);
+					propCount++;
+				}
 
-			AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
-			break;
+				AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
+				break;
 
 		case JsonValueKind.Array:
-			int arrCount = 0;
-			foreach (var arrItem in elem.EnumerateArray())
-			{
-				BuildDictionary(arrItem);
-				arrCount++;
-			}
+				int arrCount = 0;
+				foreach (var arrItem in elem.EnumerateArray())
+				{
+					BuildDictionary(arrItem);
+					arrCount++;
+				}
 
-			AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
-			break;
+				AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
+				break;
 
 		case JsonValueKind.String:
 			AddStringToDict(elem.GetString());
@@ -94,6 +94,7 @@ internal class DictBuilder(JBMOptions options)
 		de.Count++;
 	}
 
+	[Conditional("DEBUG")]
 	private void CheckNotFinalized()
 	{
 		if (IsFinalized)
@@ -137,6 +138,7 @@ internal class DictBuilder(JBMOptions options)
 		DictSerialized = mem.ToArray();
 	}
 
+	[Conditional("DEBUG")]
 	private void CheckFinalized()
 	{
 		if (!IsFinalized)

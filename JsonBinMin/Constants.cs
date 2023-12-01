@@ -32,6 +32,8 @@ internal static class Constants
 	public const uint U24MaxValue = (1U << 24) - 1;
 	public const ulong U48MaxValue = (1UL << 48) - 1;
 
+	public const uint SqueezedInlineMaxValue = 14;
+
 	public const uint JbmIntInlineMaxValue = 31;
 	public const uint JbmInt8MaxValue = byte.MaxValue;
 	public const uint JbmInt16MaxValue = JbmInt16Offset + ushort.MaxValue;
