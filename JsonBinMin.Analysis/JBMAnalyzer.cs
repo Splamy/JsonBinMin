@@ -39,7 +39,7 @@ internal class JBMAnalyzer
 			report.TrackType(JBMType.Object);
 
 			AnalyzeSqueezedNumber(report, data);
-			var objElemCount = decoder.ReadNumberToInt(data, out data);
+			var objElemCount = ReadNumberToInt(data, out data);
 			for (int i = 0; i < objElemCount; i++)
 			{
 				Analyze(report, data, out data);
@@ -52,7 +52,7 @@ internal class JBMAnalyzer
 			report.TrackType(JBMType.Array);
 
 			AnalyzeSqueezedNumber(report, data);
-			var arrElemCount = decoder.ReadNumberToInt(data, out data);
+			var arrElemCount = ReadNumberToInt(data, out data);
 			for (int i = 0; i < arrElemCount; i++)
 			{
 				Analyze(report, data, out data);
@@ -64,7 +64,7 @@ internal class JBMAnalyzer
 			report.TrackType(JBMType.String);
 
 			AnalyzeSqueezedNumber(report, data);
-			decoder.ReadString(Stream.Null, data, out rest);
+			ReadString(Stream.Null, decoder.Options, data, out rest);
 			return false;
 
 		case DecodePoint.Block101:
