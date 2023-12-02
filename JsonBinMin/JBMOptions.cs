@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace JsonBinMin;
 
@@ -14,6 +15,7 @@ public class JBMOptions
 		NumberHandling = JsonNumberHandling.Strict,
 		PropertyNameCaseInsensitive = false,
 		ReadCommentHandling = JsonCommentHandling.Skip,
+		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
 	};
 
 	// <1.0000> == <1.0>

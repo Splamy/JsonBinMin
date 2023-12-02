@@ -4,10 +4,8 @@ using System.Buffers.Text;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -64,7 +62,7 @@ internal partial class JBMDecoder
 
 
 		case DecodePoint.DString:
-			ReadString(Output, data, out rest);
+			ReadString(Output, Options, data, out rest);
 			break;
 
 		case DecodePoint.Block101:
@@ -365,7 +363,7 @@ internal partial class JBMDecoder
 		return intAcc;
 	}
 
-	public uint ReadNumberToInt(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
+	public static uint ReadNumberToInt(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 	{
 		var pick = data[0];
 
@@ -441,11 +439,11 @@ internal partial class JBMDecoder
 	}
 
 	// reads without PickByte
-	public void ReadString(Stream output, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
+	public static void ReadString(Stream output, JBMOptions options, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 	{
 		var strLen = (int)ReadNumberToInt(data, out data);
 		output.WriteByte((byte)'"');
-		output.Write(JsonEncodedText.Encode(data[..strLen]).EncodedUtf8Bytes);
+		output.Write(JsonEncodedText.Encode(data[..strLen], options.JsonSerializerOptions.Encoder).EncodedUtf8Bytes);
 		output.WriteByte((byte)'"');
 		rest = data[strLen..];
 	}
