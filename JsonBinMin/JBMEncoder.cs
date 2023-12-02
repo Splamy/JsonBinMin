@@ -130,17 +130,18 @@ internal class JBMEncoder
 
 	public static void WriteStringValue(string str, Stream output, JBMOptions options)
 	{
-		if (str.Length < 0xF)
+		var bytes = Utf8Encoder.GetBytes(str);
+
+		if (bytes.Length <= Constants.SqueezedInlineMaxValue)
 		{
-			output.WriteByte((byte)((byte)JBMType.String | str.Length));
+			output.WriteByte((byte)((byte)JBMType.String | bytes.Length));
 		}
 		else
 		{
 			output.WriteByte((byte)JBMType.StringExt);
-			WriteNumberValue(str.Length.ToString(CultureInfo.InvariantCulture), output, options);
+			WriteNumberValue(bytes.Length.ToString(CultureInfo.InvariantCulture), output, options);
 		}
 
-		var bytes = Utf8Encoder.GetBytes(str);
 		output.Write(bytes);
 	}
 
