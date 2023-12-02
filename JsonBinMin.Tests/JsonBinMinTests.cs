@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using NUnit.Framework;
 using static JsonBinMin.Tests.AssertUtil;
@@ -26,6 +27,7 @@ public class JsonBinMinTests
 			yield return new object[] { "nums_02.json", 11229, 6186, 6186, 6186, useDict };
 			yield return new object[] { "nums_03.json", 18805, 10945, 10810, 10810, useDict };
 			yield return new object[] { "big_01.json", 5796673, 2500838, 782976, 782976, useDict };
+			yield return new object[] { "test.unicode.json", 15487, 12859, 8326, 8326, useDict };
 		}
 	}
 
@@ -48,7 +50,7 @@ public class JsonBinMinTests
 			_ => throw new ArgumentOutOfRangeException(nameof(useDict), useDict, null),
 		};
 
-		var json = File.ReadAllText(Path.Combine("Assets", file));
+		var json = File.ReadAllBytes(Path.Combine("Assets", file));
 		var options = new JBMOptions()
 		{
 			UseDict = useDict,
@@ -66,7 +68,8 @@ public class JsonBinMinTests
 		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
-		AssertStructuralEqual(json, roundtrip, options);
+		var jsonString = Encoding.UTF8.GetString(json);
+		AssertStructuralEqual(jsonString, roundtrip, options);
 	}
 
 	[Test]

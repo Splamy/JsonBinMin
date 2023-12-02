@@ -13,7 +13,6 @@ using System.Text.Json;
 namespace JsonBinMin;
 
 internal class JBMDecoder
-
 {
 	public JBMOptions Options { get; } = JBMOptions.Default;
 	public MemoryStream Output { get; set; } = new();
@@ -387,13 +386,28 @@ internal class JBMDecoder
 			output.WriteByte((byte)'-');
 	}
 
-	// reads without PickByte
+	private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, false);
+	// reads with PickByte
 	public void ReadString(Stream output, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 	{
 		var strLen = ReadNumberToInt(data, out data);
 		output.WriteByte((byte)'"');
-		output.Write(JsonEncodedText.Encode(data[..strLen]).EncodedUtf8Bytes);
+
+		int bytesRead = 0;
+		if (strLen > 0)
+		{
+			var decoder = Utf8Encoder.GetDecoder();
+
+			var charBuf = new char[strLen];
+			decoder.Convert(data, charBuf, true, out bytesRead, out var charsRead, out _);
+
+			if (charsRead != strLen)
+				throw new InvalidDataException();
+
+			output.Write(JsonEncodedText.Encode(charBuf).EncodedUtf8Bytes);
+		}
+
 		output.WriteByte((byte)'"');
-		rest = data[strLen..];
+		rest = data[bytesRead..];
 	}
 }
