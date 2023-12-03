@@ -160,9 +160,16 @@ internal class JBMDecoder
 	}
 
 	// reads with PickByte
-	public static void ReadNumber(Stream output, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
+	public void ReadNumber(Stream output, ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 	{
 		var pick = data[0];
+
+		if ((pick & 0x80) != 0)
+		{
+			output.Write(Dict[pick & 0x7F]);
+			rest = data[1..];
+			return;
+		}
 
 		if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
 		{
