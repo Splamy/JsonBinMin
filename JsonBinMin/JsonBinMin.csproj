@@ -26,6 +26,5 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Condition="'$(TargetFramework)' == 'netstandard2.1'" Include="System.Text.Json" Version="8.0.0" />
 	</ItemGroup>
 </Project>

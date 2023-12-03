@@ -129,6 +129,28 @@ public class JsonBinMinTests
 	}
 
 	[Test]
+	public void TestDictEntriesInExtValues()
+	{
+		var strb = new StringBuilder();
+		const int num = 1000;
+		strb.Append('[');
+		for (int i = 0; i < num; i++)
+		{
+			strb.Append(num);
+			if (i != num - 1)
+				strb.Append(',');
+		}
+		strb.Append(']');
+
+		var json = strb.ToString();
+
+		var options = new JBMOptions() { UseDict = UseDict.Simple };
+		var compressed = JBMConverter.Encode(json, options);
+		var roundtrip = JBMConverter.DecodeToString(compressed);
+		AssertStructuralEqual(json, roundtrip, options);
+	}
+
+	[Test]
 	public void HalfIsBetterForAtLeastOneNumber()
 	{
 		var optWithHalf = new JBMOptions() { UseFloats = UseFloats.Half };

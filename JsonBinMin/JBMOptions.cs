@@ -7,8 +7,6 @@ namespace JsonBinMin;
 
 public class JBMOptions
 {
-	public static readonly JBMOptions Default = new();
-
 	private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
 	{
 		AllowTrailingCommas = true,
@@ -17,6 +15,8 @@ public class JBMOptions
 		ReadCommentHandling = JsonCommentHandling.Skip,
 		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
 	};
+
+	public static readonly JBMOptions Default = new();
 
 	// <1.0000> == <1.0>
 	//public bool AllowSemanticallyEquivalentOpt { get; init; } = false;
