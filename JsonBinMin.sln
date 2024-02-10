@@ -14,7 +14,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonBinMin.Perf", "JsonBinMin.Perf\JsonBinMin.Perf.csproj", "{3E2A4258-6EEC-4E78-8545-4E85B3B3E872}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonBinMin.Analysis", "JsonBinMin.Analysis\JsonBinMin.Analysis.csproj", "{79B92E89-A2BC-4765-BDA2-D03D5B7F6808}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonBinMin.Analysis", "JsonBinMin.Analysis\JsonBinMin.Analysis.csproj", "{79B92E89-A2BC-4765-BDA2-D03D5B7F6808}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonBinMin.SizeTests", "JsonBinMin.SizeTests\JsonBinMin.SizeTests.csproj", "{D94D7BDE-C7C9-41D6-A5A1-3618A5E8C897}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -38,6 +40,10 @@ Global
 		{79B92E89-A2BC-4765-BDA2-D03D5B7F6808}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{79B92E89-A2BC-4765-BDA2-D03D5B7F6808}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{79B92E89-A2BC-4765-BDA2-D03D5B7F6808}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D94D7BDE-C7C9-41D6-A5A1-3618A5E8C897}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D94D7BDE-C7C9-41D6-A5A1-3618A5E8C897}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D94D7BDE-C7C9-41D6-A5A1-3618A5E8C897}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D94D7BDE-C7C9-41D6-A5A1-3618A5E8C897}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
