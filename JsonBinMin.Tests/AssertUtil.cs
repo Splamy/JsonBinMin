@@ -20,13 +20,19 @@ public static class AssertUtil
 		switch (jsonExpected.ValueKind)
 		{
 		case JsonValueKind.Object:
-			foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
+			var o1 = jsonExpected.EnumerateObject().OrderBy(j => j.Name).ToList();
+			var o2 = jsonActual.EnumerateObject().OrderBy(j => j.Name).ToList();
+			if (o1.Count != o2.Count)
+				Assert.Fail("Object length mismatch");
+			foreach (var (expected, actual) in o1.Zip(o2))
 			{
 				Assert.AreEqual(expected.Name, actual.Name);
 				AssertStructuralEqual(expected.Value, actual.Value);
 			}
 			break;
 		case JsonValueKind.Array:
+			if (jsonExpected.GetArrayLength() != jsonActual.GetArrayLength())
+				Assert.Fail("Array length mismatch");
 			foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
 				AssertStructuralEqual(expected, actual);
 			break;

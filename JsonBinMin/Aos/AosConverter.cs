@@ -217,7 +217,7 @@ public static class AosConverter
 			foreach (var aosField in aosArr.Value)
 			{
 				var len = aosField.Value.A.GetArrayLength();
-				for (int ci = parentArr.Count; ci <= len; ci++)
+				for (int ci = parentArr.Count; ci < len; ci++)
 				{
 					parentArr.Add(new JsonObject());
 				}
