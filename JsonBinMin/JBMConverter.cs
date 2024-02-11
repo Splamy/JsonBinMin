@@ -87,15 +87,15 @@ public class JBMConverter(JBMOptions options)
 	{
 		var flags = EncodeFlags.None;
 
-		JsonElement aosOut;
+		JsonNode? aosOut;
 		if (options.UseAos)
 		{
 			flags |= EncodeFlags.Aos;
-			aosOut = JsonSerializer.SerializeToElement(AosConverter.Encode(JsonObject.Create(elem)), options.JsonSerializerOptions);
+			aosOut = AosConverter.Encode(elem.ToJsonNode());
 		}
 		else
 		{
-			aosOut = elem;
+			aosOut = elem.ToJsonNode();
 		}
 
 		ReadOnlyMemory<byte> jbmOut;
@@ -103,7 +103,7 @@ public class JBMConverter(JBMOptions options)
 		{
 			flags |= EncodeFlags.Jbm;
 			var ctx = new JBMEncoder(options, dictBuilder);
-			ctx.WriteValue(aosOut);
+			ctx.WriteValue(JsonSerializer.SerializeToElement(aosOut, options.JsonSerializerOptions));
 			jbmOut = ctx.output.GetBuffer().AsMemory(0, (int)ctx.output.Length);
 		}
 		else
@@ -128,23 +128,13 @@ public class JBMConverter(JBMOptions options)
 		return ret;
 	}
 
-	private static ReadOnlyMemory<byte> DecodeToRomInternal(ReadOnlyMemory<byte> data)
+	private static ReadOnlyMemory<byte> DecodeToRomInternal(ReadOnlyMemory<byte> data, JBMOptions? options = null)
 	{
 		if (data.Length == 0)
 			return ReadOnlyMemory<byte>.Empty;
+		options ??= JBMOptions.Default;
 
-		EncodeFlags flags;
-		var flagByte = data.Span[0];
-		// Backwards compatibility
-		if (flagByte == 0b0_1111_101)
-		{
-			flags = EncodeFlags.Compressed | EncodeFlags.Jbm;
-		}
-		else
-		{
-			flags = (EncodeFlags)flagByte;
-		}
-
+		var flags = (EncodeFlags)data.Span[0];
 		data = data[1..];
 
 		if (flags.HasFlag(EncodeFlags.Compressed))
@@ -162,27 +152,27 @@ public class JBMConverter(JBMOptions options)
 
 		if (flags.HasFlag(EncodeFlags.Aos))
 		{
-			var aosData = JsonSerializer.Deserialize<AosData<JsonElement>>(data.Span)!;
+			var aosData = JsonSerializer.Deserialize<AosData<JsonElement>>(data.Span, options.JsonSerializerOptions)!;
 			var aosDocoded = AosConverter.Decode(aosData);
-			data = JsonSerializer.SerializeToUtf8Bytes(aosDocoded);
+			data = JsonSerializer.SerializeToUtf8Bytes(aosDocoded, options.JsonSerializerOptions);
 		}
 
 		return data;
 	}
-	public static Stream DecodeToStream(byte[] data) => new MemoryStream(DecodeToRomInternal(data).ToArray());
-	public static byte[] DecodeToBytes(byte[] data)
+	public static Stream DecodeToStream(ReadOnlyMemory<byte> data, JBMOptions? options = null) => new MemoryStream(DecodeToRomInternal(data, options).ToArray());
+	public static byte[] DecodeToBytes(ReadOnlyMemory<byte> data, JBMOptions? options = null)
 	{
-		var stream = DecodeToRomInternal(data);
+		var stream = DecodeToRomInternal(data, options);
 		return stream.ToArray();
 	}
-	public static string DecodeToString(byte[] data)
+	public static string DecodeToString(ReadOnlyMemory<byte> data, JBMOptions? options = null)
 	{
-		var rom = DecodeToRomInternal(data);
+		var rom = DecodeToRomInternal(data, options);
 		return Encoding.UTF8.GetString(rom.Span);
 	}
-	public static T? DecodeObject<T>(byte[] data)
+	public static T? DecodeObject<T>(ReadOnlyMemory<byte> data, JBMOptions? options = null)
 	{
-		var bytes = DecodeToBytes(data);
+		var bytes = DecodeToBytes(data, options);
 		return JsonSerializer.Deserialize<T>(bytes);
 	}
 }

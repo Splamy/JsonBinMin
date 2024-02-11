@@ -185,8 +185,13 @@ public static class AosConverter
 		}
 	}
 
-	public static JsonNode Encode(JsonNode node)
+	public static JsonNode? Encode(JsonNode? node)
 	{
+		if (node is null)
+		{
+			return null;
+		}
+
 		var clone = node.DeepClone();
 		if (clone is not JsonObject joClone)
 		{
@@ -226,7 +231,7 @@ public static class AosConverter
 					if (elem.ValueKind != nullType)
 					{
 						var arrElemObj = Util.GetOrCreate(parentArr[i].AsObject(), fldPtr);
-						arrElemObj[fldPtr.Segments.Last().Value] = FromJsonElement(elem);
+						arrElemObj[fldPtr.Segments.Last().Value] = elem.ToJsonNode();
 					}
 					i++;
 				}
@@ -235,11 +240,4 @@ public static class AosConverter
 
 		return aosDeser.Data;
 	}
-
-	private static JsonNode? FromJsonElement(JsonElement element) => element.ValueKind switch
-	{
-		JsonValueKind.Array => JsonArray.Create(element),
-		JsonValueKind.Object => JsonObject.Create(element),
-		_ => JsonValue.Create(element)
-	};
 }

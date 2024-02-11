@@ -147,7 +147,7 @@ public class JsonBinMinTests
 
 		var options = new JBMOptions() { UseDict = UseDict.Simple };
 		var compressed = JBMConverter.Encode(json, options);
-		var roundtrip = JBMConverter.DecodeToString(compressed);
+		var roundtrip = JBMConverter.DecodeToString(compressed, options);
 		AssertStructuralEqual(json, roundtrip);
 	}
 

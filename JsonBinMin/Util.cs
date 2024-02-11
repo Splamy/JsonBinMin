@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Pointer;
 
@@ -35,4 +36,12 @@ internal static class Util
 		}
 		return value;
 	}
+
+
+	public static JsonNode? ToJsonNode(this JsonElement element) => element.ValueKind switch
+	{
+		JsonValueKind.Array => JsonArray.Create(element),
+		JsonValueKind.Object => JsonObject.Create(element),
+		_ => JsonValue.Create(element)
+	};
 }
