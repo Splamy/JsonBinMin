@@ -26,6 +26,8 @@ public class AosTests
 
 		yield return new object[] { "test.unicode.json" };
 		yield return new object[] { "unicode.json" };
+
+		yield return new object[] { "map_176df_EasyStandard.json" };
 	}
 
 	[Test, TestCaseSource(nameof(TestFiles))]

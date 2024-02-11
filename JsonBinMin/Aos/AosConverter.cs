@@ -49,13 +49,13 @@ public static class AosConverter
 		{
 			foreach (var kvp in node)
 			{
+				var flatKey = ptr.Combine(PointerSegment.Create(kvp.Key));
+
 				if (kvp.Value is null)
 				{
-					flatObj[kvp.Key] = null;
+					flatObj[flatKey.ToString()] = null;
 					continue;
 				}
-
-				var flatKey = ptr.Combine(PointerSegment.Create(kvp.Key));
 
 				if (kvp.Value is JsonObject obj)
 				{
