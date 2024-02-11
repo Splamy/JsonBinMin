@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using JsonBinMin.BinV1;
 
 namespace JsonBinMin.Analysis;
 
@@ -164,4 +165,4 @@ internal class StaticAnalysis
 	}
 }
 
-record SliceResult(long Start, long End, JBMType Type);
+internal record SliceResult(long Start, long End, JBMType Type);

@@ -1,5 +1,4 @@
-﻿using System;
-using static JsonBinMin.JBMDecoder.DecodePoint;
+﻿using static JsonBinMin.JBMDecoder.DecodePoint;
 
 namespace JsonBinMin;
 
@@ -24,10 +23,10 @@ internal partial class JBMDecoder
 		Block110, Block110, Block110, Block110, Unused, Unused, Block110, Block110,
 
 		NumStr, NumStr, NumStr, NumStr, NumStr, NumStr, NumStr, NumStr,
-		False, True, Null, Unused, MetaDictDef, Compressed, Unused, Unused,
+		False, True, Null, Unused, MetaDictDef, Unused, Unused, Unused,
 	];
 
-	internal static class DecodePoint 
+	internal static class DecodePoint
 	{
 		public const byte Unused = 0;
 		public const byte IntInline = 1;
@@ -41,6 +40,5 @@ internal partial class JBMDecoder
 		public const byte True = 9;
 		public const byte Null = 10;
 		public const byte MetaDictDef = 11;
-		public const byte Compressed = 12;
 	}
 }

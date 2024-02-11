@@ -38,7 +38,6 @@ internal enum JBMType : byte
 	True        = 0b0_1111_001, // [T]
 	Null        = 0b0_1111_010, // [T]
 	MetaDictDef = 0b0_1111_100, // [T] [#=size] [X, Y, Z, ...]
-	Compressed  = 0b0_1111_101, // [T] rest... (Only allowed as the first byte overall)
 
 	// B64Str,HexStr ?
 }

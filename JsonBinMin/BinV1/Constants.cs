@@ -1,7 +1,6 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 
-namespace JsonBinMin;
+namespace JsonBinMin.BinV1;
 
 internal static class Constants
 {
@@ -38,7 +37,7 @@ internal static class Constants
 	public const uint JbmInt8MaxValue = byte.MaxValue;
 	public const uint JbmInt16MaxValue = JbmInt16Offset + ushort.MaxValue;
 	public const uint JbmInt24MaxValue = JbmInt24Offset + U24MaxValue;
-	public const ulong JbmInt32MaxValue = (ulong)JbmInt32Offset + (ulong)uint.MaxValue;
+	public const ulong JbmInt32MaxValue = JbmInt32Offset + (ulong)uint.MaxValue;
 	public const ulong JbmInt48MaxValue = JbmInt48Offset + U48MaxValue;
 	public static readonly BigInteger JbmInt64MaxValue = new BigInteger(JbmInt64Offset) + new BigInteger(ulong.MaxValue);
 

@@ -1,13 +1,11 @@
-﻿using System;
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Buffers.Text;
 using System.Globalization;
-using System.IO;
-using System.IO.Compression;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using JsonBinMin.BinV1;
 
 namespace JsonBinMin;
 
@@ -108,39 +106,11 @@ internal partial class JBMDecoder
 			rest = data;
 			return true;
 
-		case DecodePoint.Compressed:
-			throw new InvalidDataException("Mid jbm compression is not supported");
-
 		default:
 			throw new InvalidDataException();
 		}
 
 		return false;
-	}
-
-	public static MemoryStream Decompress(ReadOnlySpan<byte> data)
-	{
-		var mem = new MemoryStream(Math.Max(8192, data.Length * 2));
-		var bd = new BrotliDecoder();
-		Span<byte> buffer = stackalloc byte[8192];
-		while (true)
-		{
-			var res = bd.Decompress(data, buffer, out var read, out var written);
-			data = data[read..];
-			mem.Write(buffer[..written]);
-
-			switch (res)
-			{
-			case System.Buffers.OperationStatus.DestinationTooSmall:
-				continue;
-			case System.Buffers.OperationStatus.Done:
-				return mem;
-			case System.Buffers.OperationStatus.InvalidData:
-				throw new Exception("InvalidData");
-			case System.Buffers.OperationStatus.NeedMoreData:
-				throw new Exception("NeedMoreData");
-			}
-		}
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]

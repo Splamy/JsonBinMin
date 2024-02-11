@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.Json;
+using JsonBinMin.BinV1;
 using NUnit.Framework;
 using static JsonBinMin.Tests.AssertUtil;
 
@@ -18,38 +17,37 @@ public class JsonBinMinTests
 	{
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
-			yield return new object[] { "simple_01.json", 576, 307, 298, 298, useDict };
-			yield return new object[] { "simple_02.json", 376, 139, 114, 114, useDict };
-			yield return new object[] { "simple_03.json", 601, 311, 279, 279, useDict };
-			yield return new object[] { "simple_04.json", 3821, 2472, 2281, 2281, useDict };
-			yield return new object[] { "opts_01.json", 416, 229, 229, 229, useDict };
-			yield return new object[] { "nums_01.json", 750, 419, 419, 419, useDict };
-			yield return new object[] { "nums_02.json", 11229, 6154, 6154, 6154, useDict };
-			yield return new object[] { "nums_03.json", 18805, 10945, 10810, 10810, useDict };
-			yield return new object[] { "big_01.json", 5796673, 2500838, 782976, 782976, useDict };
-			yield return new object[] { "big_02.json", 45467800, 18641755, 7828682, 7828682, useDict };
+			yield return new object[] { "simple_01.json", 576, 308, 299, useDict };
+			yield return new object[] { "simple_02.json", 376, 140, 115, useDict };
+			yield return new object[] { "simple_03.json", 601, 312, 280, useDict };
+			yield return new object[] { "simple_04.json", 3821, 2473, 2282, useDict };
+			yield return new object[] { "opts_01.json", 416, 230, 230, useDict };
+			yield return new object[] { "nums_01.json", 750, 420, 420, useDict };
+			yield return new object[] { "nums_02.json", 11229, 6155, 6155, useDict };
+			yield return new object[] { "nums_03.json", 18805, 10946, 10811, useDict };
+			yield return new object[] { "big_01.json", 5796673, 2500839, 782977, useDict };
+			yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
 
-			yield return new object[] { "test.unicode.json", 15487, 12859, 8326, 8326, useDict };
-			yield return new object[] { "unicode.json", 3568, 1591, 1207, 1207, useDict };
+			yield return new object[] { "test.unicode.json", 15487, 12860, 8327, useDict };
+			yield return new object[] { "unicode.json", 3568, 1592, 1208, useDict };
 		}
 	}
 
 	[Test, TestCaseSource(nameof(TestFiles))]
-	public void TestInvariants(string _file, int _originalSize, int compressedDictOff, int compressedDictSimple, int compressedDictDeep, UseDict _useDict)
+	public void TestInvariants(string _file, int originalSize, int compressedDictOff, int compressedDictSimple, UseDict _useDict)
 	{
+		Assert.LessOrEqual(compressedDictOff, originalSize); // Compressed should be smaller than original
 		Assert.LessOrEqual(compressedDictSimple, compressedDictOff); // Simple dict should be strictly smaller than no dict
-		Assert.LessOrEqual(compressedDictDeep, compressedDictSimple); // Deep dict should be strictly smaller than simple dict
 	}
 
 	[Test, TestCaseSource(nameof(TestFiles))]
 	public void RoundTrip(string file, int originalSize,
-		int compressedDictOff, int compressedDictSimple, int compressedDictDeep, UseDict useDict)
+		int compressedDictOff, int compressedDictSimple, UseDict useDict)
 	{
 		var compressedSize = useDict switch
 		{
 			UseDict.Off => compressedDictOff,
 			UseDict.Simple => compressedDictSimple,
-			UseDict.Deep => compressedDictDeep,
 			_ => throw new ArgumentOutOfRangeException(nameof(useDict), useDict, null),
 		};
 
@@ -58,6 +56,9 @@ public class JsonBinMinTests
 		{
 			UseDict = useDict,
 			UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
+			UseJbm = true,
+			UseAos = false,
+			Compress = false,
 		};
 		var compressed = JBMConverter.Encode(json, options);
 		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
@@ -72,7 +73,7 @@ public class JsonBinMinTests
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
 		var jsonString = Encoding.UTF8.GetString(json);
-		AssertStructuralEqual(jsonString, roundtrip, options);
+		AssertStructuralEqual(jsonString, roundtrip);
 	}
 
 	[Test]
@@ -116,16 +117,16 @@ public class JsonBinMinTests
 	}
 
 	[Test]
-	public void TestCompression([Values] UseDict useDict)
+	public void TestFlagCombinations([Values] UseDict useDict, [Values] bool useAos, [Values] bool useCompression, [Values] bool useJbm)
 	{
 		var file = "simple_01.json";
 		var json = File.ReadAllText(Path.Combine("Assets", file));
 
-		var options = new JBMOptions() { UseDict = useDict, Compress = true };
+		var options = new JBMOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
 		var compressed = JBMConverter.Encode(json, options);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
-		AssertStructuralEqual(json, roundtrip, options);
+		AssertStructuralEqual(json, roundtrip);
 	}
 
 	[Test]
@@ -147,7 +148,7 @@ public class JsonBinMinTests
 		var options = new JBMOptions() { UseDict = UseDict.Simple };
 		var compressed = JBMConverter.Encode(json, options);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
-		AssertStructuralEqual(json, roundtrip, options);
+		AssertStructuralEqual(json, roundtrip);
 	}
 
 	[Test]
@@ -179,48 +180,6 @@ public class JsonBinMinTests
 
 		if (found.Count == 0)
 			Assert.Fail();
-	}
-}
-
-public static class AssertUtil
-{
-	public static void AssertStructuralEqual(string jsonExprected, string jsonActual, JBMOptions options)
-	{
-		var expected = JsonSerializer.Deserialize<JsonElement>(jsonExprected);
-		var actual = JsonSerializer.Deserialize<JsonElement>(jsonActual);
-		AssertStructuralEqual(expected, actual, options);
-	}
-
-	public static void AssertStructuralEqual(JsonElement jsonExpected, JsonElement jsonActual, JBMOptions options)
-	{
-		Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind);
-		switch (jsonExpected.ValueKind)
-		{
-		case JsonValueKind.Object:
-			foreach (var (expected, actual) in jsonExpected.EnumerateObject().OrderBy(j => j.Name).Zip(jsonActual.EnumerateObject().OrderBy(j => j.Name)))
-			{
-				Assert.AreEqual(expected.Name, actual.Name);
-				AssertStructuralEqual(expected.Value, actual.Value, options);
-			}
-			break;
-		case JsonValueKind.Array:
-			foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
-				AssertStructuralEqual(expected, actual, options);
-			break;
-		case JsonValueKind.String:
-			Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString());
-			break;
-		case JsonValueKind.Number:
-			Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText());
-			break;
-		case JsonValueKind.Undefined:
-		case JsonValueKind.True:
-		case JsonValueKind.False:
-		case JsonValueKind.Null:
-			return;
-		case var unhandled:
-			throw new MissingMemberException("Missing case:" + unhandled.ToString());
-		}
 	}
 }
 

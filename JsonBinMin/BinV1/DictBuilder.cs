@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 
-namespace JsonBinMin;
+namespace JsonBinMin.BinV1;
 
 internal class DictBuilder(JBMOptions options)
 {
@@ -26,27 +22,27 @@ internal class DictBuilder(JBMOptions options)
 		switch (elem.ValueKind)
 		{
 		case JsonValueKind.Object:
-				int propCount = 0;
-				foreach (var kvp in elem.EnumerateObject())
-				{
+			var propCount = 0;
+			foreach (var kvp in elem.EnumerateObject())
+			{
 				AddStringToDict(kvp.Name);
-					BuildDictionary(kvp.Value);
-					propCount++;
-				}
+				BuildDictionary(kvp.Value);
+				propCount++;
+			}
 
-				AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
-				break;
+			AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
+			break;
 
 		case JsonValueKind.Array:
-				int arrCount = 0;
-				foreach (var arrItem in elem.EnumerateArray())
-				{
-					BuildDictionary(arrItem);
-					arrCount++;
-				}
+			var arrCount = 0;
+			foreach (var arrItem in elem.EnumerateArray())
+			{
+				BuildDictionary(arrItem);
+				arrCount++;
+			}
 
-				AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
-				break;
+			AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
+			break;
 
 		case JsonValueKind.String:
 			AddStringToDict(elem.GetString());
@@ -128,7 +124,7 @@ internal class DictBuilder(JBMOptions options)
 		Trace.Assert(dictValues.Length <= 0x7f);
 		JBMEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), mem, options);
 
-		for (int i = 0; i < dictValues.Length; i++)
+		for (var i = 0; i < dictValues.Length; i++)
 		{
 			var entry = dictValues[i];
 			entry.Index = i;
@@ -155,13 +151,6 @@ internal class DictBuilder(JBMOptions options)
 	{
 		CheckFinalized();
 		return buildDictNum.TryGetValue(key, out entry);
-	}
-
-	public bool TryGetDeepEntry(JsonElement key, [MaybeNullWhen(false)] out DictEntry entry)
-	{
-		CheckFinalized();
-		entry = default;
-		return false;
 	}
 
 	internal enum DictElemKind

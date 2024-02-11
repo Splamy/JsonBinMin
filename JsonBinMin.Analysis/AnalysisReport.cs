@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using JsonBinMin.BinV1;
 
 namespace JsonBinMin.Analysis;
 

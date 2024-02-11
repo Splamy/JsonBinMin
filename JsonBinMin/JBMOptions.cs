@@ -1,7 +1,6 @@
-﻿using System;
-using System.Text.Json.Serialization;
+﻿using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Encodings.Web;
+using System.Text.Json.Serialization;
 
 namespace JsonBinMin;
 
@@ -18,17 +17,15 @@ public class JBMOptions
 
 	public static readonly JBMOptions Default = new();
 
-	// <1.0000> == <1.0>
-	//public bool AllowSemanticallyEquivalentOpt { get; init; } = false;
-
-	// <1.0> == <1>
-	//public bool AllowReduceToIntegerOpt { get; init; } = false;
-
 	public UseDict UseDict { get; init; } = UseDict.Simple;
 
 	public UseFloats UseFloats { get; init; } = UseFloats.Single | UseFloats.Double;
 
+	public bool UseJbm { get; init; } = false;
+
 	public bool Compress { get; init; } = false;
+
+	public bool UseAos { get; init; } = false;
 
 	public JsonSerializerOptions JsonSerializerOptions { get; init; } = DefaultJsonSerializerOptions;
 }
@@ -46,6 +43,13 @@ public enum UseFloats
 public enum UseDict
 {
 	Off,
-	Simple,
-	Deep,
+	Simple
+}
+
+internal enum EncodeFlags : byte
+{
+	None = 0,
+	Jbm = 1 << 0,
+	Compressed = 1 << 1,
+	Aos = 1 << 2,
 }

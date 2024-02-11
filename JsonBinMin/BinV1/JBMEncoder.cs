@@ -1,16 +1,12 @@
-﻿using System;
-using System.Buffers.Binary;
-using System.Collections.Generic;
+﻿using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
-namespace JsonBinMin;
+namespace JsonBinMin.BinV1;
 
 internal class JBMEncoder
 {
@@ -29,11 +25,6 @@ internal class JBMEncoder
 
 	public void WriteValue(JsonElement elem)
 	{
-		if (TryWriteValueFromDict(elem))
-		{
-			return;
-		}
-
 		switch (elem.ValueKind)
 		{
 		case JsonValueKind.Undefined:
@@ -43,9 +34,7 @@ internal class JBMEncoder
 			var objElemems = elem.EnumerateObject().ToArray();
 
 			if (objElemems.Length <= Constants.SqueezedInlineMaxValue)
-			{
 				output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
-			}
 			else
 			{
 				output.WriteByte((byte)JBMType.ObjectExt);
@@ -63,9 +52,7 @@ internal class JBMEncoder
 			var arrElemems = elem.EnumerateArray().ToArray();
 
 			if (arrElemems.Length <= Constants.SqueezedInlineMaxValue)
-			{
 				output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
-			}
 			else
 			{
 				output.WriteByte((byte)JBMType.ArrayExt);
@@ -73,9 +60,7 @@ internal class JBMEncoder
 			}
 
 			foreach (var arrItem in arrElemems)
-			{
 				WriteValue(arrItem);
-			}
 			break;
 
 		case JsonValueKind.String:
@@ -103,17 +88,6 @@ internal class JBMEncoder
 		}
 	}
 
-	public bool TryWriteValueFromDict(JsonElement elem)
-	{
-		if (options.UseDict == UseDict.Deep && dict.TryGetDeepEntry(elem, out var entry) && entry.IsIndexed)
-		{
-			output.WriteByte((byte)(0x80 | entry.Index));
-			return true;
-		}
-
-		return false;
-	}
-
 	public void WriteStringValue(string? str)
 	{
 		if (str is null)
@@ -133,9 +107,7 @@ internal class JBMEncoder
 		var bytes = Utf8Encoder.GetBytes(str);
 
 		if (bytes.Length <= Constants.SqueezedInlineMaxValue)
-		{
 			output.WriteByte((byte)((byte)JBMType.String | bytes.Length));
-		}
 		else
 		{
 			output.WriteByte((byte)JBMType.StringExt);
@@ -171,7 +143,6 @@ internal class JBMEncoder
 		var posNum = numNeg ? num[1..] : num;
 
 		if (ulong.TryParse(posNum, NumberStyles.None, CultureInfo.InvariantCulture, out var integerVal))
-		{
 			switch (integerVal)
 			{
 			case <= Constants.JbmIntInlineMaxValue when !numNeg:
@@ -197,7 +168,7 @@ internal class JBMEncoder
 					buf[0] = GetWithNegativeFlag(JBMType.Int24, numNeg);
 					var offsetVal = integerVal - Constants.JbmInt24Offset;
 					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(offsetVal & 0xFFFF));
-					buf[3] = (byte)((offsetVal >> 16) & 0xFF);
+					buf[3] = (byte)(offsetVal >> 16 & 0xFF);
 					output.Write(buf);
 					return;
 				}
@@ -215,12 +186,11 @@ internal class JBMEncoder
 					buf[0] = GetWithNegativeFlag(JBMType.Int48, numNeg);
 					var offsetVal = integerVal - Constants.JbmInt48Offset;
 					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(offsetVal & 0xFFFFFFFF));
-					BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)((offsetVal >> 32) & 0xFFFF));
+					BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)(offsetVal >> 32 & 0xFFFF));
 					output.Write(buf);
 					return;
 				}
 			}
-		}
 
 		if (BigInteger.TryParse(posNum, out var bi))
 		{
@@ -313,7 +283,7 @@ internal class JBMEncoder
 			return false;
 		}
 
-		for (int i = 1; i < buf.Count; i++) buf[i] |= 0x80;
+		for (var i = 1; i < buf.Count; i++) buf[i] |= 0x80;
 		buf.Reverse();
 
 		CollectionsMarshal.AsSpan(buf).CopyTo(data);
@@ -346,25 +316,23 @@ internal class JBMEncoder
 		// 14    : 'E'
 		// 15    : END
 
-		bool neg = num.StartsWith("-");
+		var neg = num.StartsWith("-");
 		if (neg) num = num[1..];
 
 		if (num is ['0', '.', '0'])
-		{
 			return [(byte)((byte)JBMType.NumStr | 4 | 2 | (neg ? 1 : 0))];
-		}
 
-		bool lead0 = num.StartsWith("0.", StringComparison.Ordinal);
+		var lead0 = num.StartsWith("0.", StringComparison.Ordinal);
 		if (lead0) num = num[2..];
 
-		bool tail0 = num.EndsWith(".0", StringComparison.Ordinal);
+		var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
 		if (tail0) num = num[..^2];
 
-		var buf = new byte[1 + (num.Length / 2) + 1];
+		var buf = new byte[1 + num.Length / 2 + 1];
 		buf[0] = (byte)((byte)JBMType.NumStr | (lead0 ? 4 : 0) | (tail0 ? 2 : 0) | (neg ? 1 : 0));
-		int bufPos = 1;
+		var bufPos = 1;
 
-		bool firstNibble = true;
+		var firstNibble = true;
 		byte buildByte = 0;
 
 		foreach (var c in num)
@@ -390,12 +358,10 @@ internal class JBMEncoder
 			};
 
 			if (firstNibble)
-			{
 				buildByte = nibble;
-			}
 			else
 			{
-				buildByte = (byte)((buildByte << 4) | nibble);
+				buildByte = (byte)(buildByte << 4 | nibble);
 				buf[bufPos++] = buildByte;
 			}
 			firstNibble = !firstNibble;
@@ -404,7 +370,7 @@ internal class JBMEncoder
 		if (firstNibble)
 			buf[bufPos] = 0xFF;
 		else
-			buf[bufPos] = (byte)((buildByte << 4) | 0x0F);
+			buf[bufPos] = (byte)(buildByte << 4 | 0x0F);
 
 		return buf;
 	}

@@ -1,4 +1,5 @@
-﻿using static JsonBinMin.JBMDecoder;
+﻿using JsonBinMin.BinV1;
+using static JsonBinMin.JBMDecoder;
 
 namespace JsonBinMin.Analysis;
 
@@ -155,9 +156,6 @@ internal class JBMAnalyzer
 				report.DictElementsCount = decoder.Dict.Length;
 				return true;
 			}
-
-		case DecodePoint.Compressed:
-			throw new Exception("Mid jbm compression is not supported");
 
 		default:
 			throw new InvalidDataException();
