@@ -91,7 +91,7 @@ public class JBMConverter(JBMOptions options)
 		if (options.UseAos)
 		{
 			flags |= EncodeFlags.Aos;
-			aosOut = AosConverter.Encode(elem.ToJsonNode());
+			aosOut = AosConverter.Encode(elem.ToJsonNode(), options);
 		}
 		else
 		{
@@ -153,7 +153,7 @@ public class JBMConverter(JBMOptions options)
 		if (flags.HasFlag(EncodeFlags.Aos))
 		{
 			var aosData = JsonSerializer.Deserialize<AosData<JsonElement>>(data.Span, options.JsonSerializerOptions)!;
-			var aosDocoded = AosConverter.Decode(aosData);
+			var aosDocoded = AosConverter.Decode(aosData, options);
 			data = JsonSerializer.SerializeToUtf8Bytes(aosDocoded, options.JsonSerializerOptions);
 		}
 

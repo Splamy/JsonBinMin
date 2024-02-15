@@ -68,14 +68,14 @@ if (true)
 	var file1 = File.ReadAllBytes(@"E:\maps\3918e\ExpertPlusStandard.dat");
 	var json = JsonSerializer.Deserialize<JsonNode>(file1);
 	Track("Deser");
-	var aos = AosConverter.Encode(json);
+	var aos = AosConverter.Encode(json, JBMOptions.Default);
 	Track("Encode");
 	var serText = aos.ToJsonString(opt);
 	File.WriteAllText("split.json", serText);
 	Track("Ser");
 	var tmpSer = JsonSerializer.Deserialize<AosData<JsonElement>>(serText)!;
 	Track("Deser");
-	var aosNodeRt = AosConverter.Decode(tmpSer);
+	var aosNodeRt = AosConverter.Decode(tmpSer, JBMOptions.Default);
 	Track("Decode");
 
 	var basic = JsonSerializer.SerializeToUtf8Bytes(json, opt);
@@ -143,7 +143,7 @@ Parallel.ForEach(Directory.EnumerateFiles(@"E:\maps", "ExpertPlusStandard.dat", 
 		var basicJBMbrotli = CompressBrotli(basicJBM);
 		Track("Basic JBM Brotli");
 
-		var aos = AosConverter.Encode(json);
+		var aos = AosConverter.Encode(json, JBMOptions.Default);
 
 		var split = JsonSerializer.SerializeToUtf8Bytes(aos, opt);
 		Track("Split");

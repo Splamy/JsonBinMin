@@ -1,0 +1,87 @@
+{
+  "Aos": {
+    "/vals": {
+      "/all_flat": {
+        "A": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ]
+      },
+      "/all_obj_all_nest/all_nest": {
+        "A": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "/all_obj_sparse_nest/sparse_nest": {
+        "N": 7,
+        "A": [
+          1,
+          null,
+          1,
+          1
+        ]
+      },
+      "/sparse_obj_all_nest/all_nest": {
+        "N": 7,
+        "A": [
+          1,
+          1,
+          null,
+          1
+        ]
+      },
+      "/sparse_obj_sparse_nest/sparse_nest": {
+        "N": 7,
+        "A": [
+          1,
+          1,
+          null,
+          null
+        ]
+      },
+      "/all_obj_mix_nest/all_nest": {
+        "A": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "/all_obj_mix_nest/sparse_nest": {
+        "N": 7,
+        "A": [
+          1,
+          1,
+          1,
+          null
+        ]
+      },
+      "/sparse_flat": {
+        "N": 7,
+        "A": [
+          null,
+          "int",
+          "int",
+          "int"
+        ]
+      }
+    }
+  },
+  "Data": {
+    "vals": [
+      {},
+      {
+        "all_obj_sparse_nest": {}
+      },
+      {
+        "sparse_obj_sparse_nest": {}
+      },
+      {}
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "pure_obj": [
+    { "val": {} },
+    { "val": { "nested": 1 } },
+    { "val": { "asdf": 4 } },
+    { "val": {} }
+  ],
+  "mixed_obj": [
+    { "val": {} },
+    { "val": { "nested": 1 } },
+    { "val": 42 },
+    { "val": {} }
+  ],
+  "mixed_with_null": [
+    { "val": {} },
+    { "val": null },
+    { "val": 42 },
+    { "val": null }
+  ],
+  "mixed_with_null_sub": [
+    { "val": { "sub": 42 } },
+    { "val": null },
+    { "val": 42 },
+    { "val": null }
+  ]
+}

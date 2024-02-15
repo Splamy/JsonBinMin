@@ -37,11 +37,26 @@ internal static class Util
 		return value;
 	}
 
-
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static JsonNode? ToJsonNode(this JsonElement element) => element.ValueKind switch
 	{
 		JsonValueKind.Array => JsonArray.Create(element),
 		JsonValueKind.Object => JsonObject.Create(element),
 		_ => JsonValue.Create(element)
 	};
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool IsPrefixOf(this JsonPointer self, JsonPointer subKey)
+	{
+		if (subKey.Segments.Length >= self.Segments.Length)
+			return false;
+
+		for (var i = 0; i < subKey.Segments.Length; i++)
+		{
+			if (subKey.Segments[i] != self.Segments[i])
+				return false;
+		}
+
+		return true;
+	}
 }

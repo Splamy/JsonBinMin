@@ -1,0 +1,71 @@
+{
+  "Aos": {
+    "/mixed_obj": {
+      "/val": {
+        "N": 7,
+        "A": [
+          {},
+          null,
+          42,
+          {}
+        ]
+      }
+    },
+    "/mixed_with_null": {
+      "/val": {
+        "A": [
+          {},
+          null,
+          42,
+          null
+        ]
+      }
+    }
+  },
+  "Data": {
+    "pure_obj": [
+      {
+        "val": {}
+      },
+      {
+        "val": {
+          "nested": 1
+        }
+      },
+      {
+        "val": {
+          "asdf": 4
+        }
+      },
+      {
+        "val": {}
+      }
+    ],
+    "mixed_obj": [
+      {},
+      {
+        "val": {
+          "nested": 1
+        }
+      },
+      {},
+      {}
+    ],
+    "mixed_with_null_sub": [
+      {
+        "val": {
+          "sub": 42
+        }
+      },
+      {
+        "val": null
+      },
+      {
+        "val": 42
+      },
+      {
+        "val": null
+      }
+    ]
+  }
+}

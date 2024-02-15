@@ -17,15 +17,16 @@ public class JBMOptions
 
 	public static readonly JBMOptions Default = new();
 
+	public bool UseJbm { get; init; } = false;
 	public UseDict UseDict { get; init; } = UseDict.Simple;
-
 	public UseFloats UseFloats { get; init; } = UseFloats.Single | UseFloats.Double;
 
-	public bool UseJbm { get; init; } = false;
 
 	public bool Compress { get; init; } = false;
 
 	public bool UseAos { get; init; } = false;
+	public int AosMinArraySize { get; init; } = 32;
+	public int AosMinSparseFraction { get; init; } = 2;
 
 	public JsonSerializerOptions JsonSerializerOptions { get; init; } = DefaultJsonSerializerOptions;
 }

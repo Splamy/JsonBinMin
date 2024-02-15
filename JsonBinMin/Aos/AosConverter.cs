@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.More;
 using Json.Pointer;
@@ -7,7 +8,7 @@ namespace JsonBinMin.Aos;
 
 public static class AosConverter
 {
-	public static void FindCompressibleArrays(AosData<JsonArray> aosData, JsonNode node, JsonObject? parent, string key)
+	public static void FindCompressibleArrays(AosData<JsonArray> aosData, JsonNode node, JsonObject? parent, string key, JBMOptions options)
 	{
 		if (node is JsonArray arr)
 		{
@@ -18,12 +19,20 @@ public static class AosConverter
 			}
 
 			// Ignore small arrays
-			if (arr.Count < 32)
+			if (arr.Count < options.AosMinArraySize)
 			{
 				return;
 			}
 
-			EncodeArray(aosData, parent, key, arr);
+			var newArr = EncodeArray(aosData, arr, options);
+			if (newArr == null)
+			{
+				parent.Remove(key);
+			}
+			else if (newArr != arr)
+			{
+				parent[key] = newArr;
+			}
 		}
 		else if (node is JsonObject obj)
 		{
@@ -34,42 +43,49 @@ public static class AosConverter
 					continue;
 				}
 
-				FindCompressibleArrays(aosData, kvp.Value, obj, kvp.Key);
+				FindCompressibleArrays(aosData, kvp.Value, obj, kvp.Key, options);
 			}
 		}
 	}
 
-	public static Dictionary<string, JsonNode?> FlattenNode(JsonObject node)
+	public static Dictionary<JsonPointer, JsonNode?> FlattenNode(JsonObject node)
 	{
-		var flatObj = new Dictionary<string, JsonNode?>();
+		var flatObj = new Dictionary<JsonPointer, JsonNode?>();
 		FlattenNodeRec(flatObj, JsonPointer.Empty, node);
 		return flatObj;
 
-		static void FlattenNodeRec(Dictionary<string, JsonNode?> flatObj, JsonPointer ptr, JsonObject node)
+		static void FlattenNodeRec(Dictionary<JsonPointer, JsonNode?> flatObj, JsonPointer ptr, JsonObject node)
 		{
 			foreach (var kvp in node)
 			{
-				var flatKey = ptr.Combine(PointerSegment.Create(kvp.Key));
+				var flatKey = ptr.Combine(kvp.Key);
 
 				if (kvp.Value is null)
 				{
-					flatObj[flatKey.ToString()] = null;
+					flatObj[flatKey] = null;
 					continue;
 				}
 
 				if (kvp.Value is JsonObject obj)
 				{
-					FlattenNodeRec(flatObj, flatKey, obj);
+					if (obj.Count == 0)
+					{
+						flatObj[flatKey] = new JsonObject();
+					}
+					else
+					{
+						FlattenNodeRec(flatObj, flatKey, obj);
+					}
 				}
 				else
 				{
-					flatObj[flatKey.ToString()] = kvp.Value.DeepClone();
+					flatObj[flatKey] = kvp.Value.DeepClone();
 				}
 			}
 		}
 	}
 
-	public static JsonObject UnflattenNode(Dictionary<string, JsonNode?> node)
+	public static JsonObject UnflattenNode(Dictionary<JsonPointer, JsonNode?> node)
 	{
 		var unflatObj = new JsonObject();
 
@@ -77,11 +93,11 @@ public static class AosConverter
 		{
 			if (kvp.Value is null)
 			{
-				unflatObj[kvp.Key] = null;
+				unflatObj[kvp.Key.ToString()] = null;
 				continue;
 			}
 
-			var parts = JsonPointer.Parse(kvp.Key).Segments.Select(x => x.Value).ToArray();
+			var parts = kvp.Key.Segments.Select(x => x.Value).ToArray();
 			var last = parts.Length - 1;
 			var cur = unflatObj;
 
@@ -97,12 +113,66 @@ public static class AosConverter
 		return unflatObj;
 	}
 
-	public static void EncodeArray(AosData<JsonArray> aosData, JsonObject parent, string key, JsonArray array)
+	private static Dictionary<JsonPointer, KeyBuildData> AnalyzeKeys(JsonArray elem)
+	{
+		Dictionary<JsonPointer, KeyBuildData> keys = [];
+		foreach (var obj in elem.Cast<JsonObject>())
+		{
+			AnanlyzeKeysRec(keys, JsonPointer.Empty, obj);
+		}
+		return keys;
+
+		static void AnanlyzeKeysRec(Dictionary<JsonPointer, KeyBuildData> keys, JsonPointer ptr, JsonObject elem)
+		{
+			foreach (var kvp in elem)
+			{
+				var flatKey = ptr.Combine(kvp.Key);
+
+				ref var kbd = ref CollectionsMarshal.GetValueRefOrAddDefault(keys, flatKey, out _);
+				kbd.InclCount++;
+
+				if (kvp.Value is JsonObject jo)
+				{
+					if (jo.Count == 0)
+					{
+						kbd.ExclCount++;
+					}
+					else
+					{
+						AnanlyzeKeysRec(keys, flatKey, jo);
+					}
+				}
+				else
+				{
+					kbd.ExclCount++;
+
+					if (kvp.Value == null)
+					{
+						kbd.HasNull = true;
+					}
+					else if (kvp.Value.GetValueKind() == JsonValueKind.Number)
+					{
+						kbd.HasNum = true;
+					}
+				}
+			}
+		}
+	}
+
+	private struct KeyBuildData
+	{
+		public int InclCount;
+		public int ExclCount;
+		public bool HasNull;
+		public bool HasNum;
+	}
+
+	public static JsonArray? EncodeArray(AosData<JsonArray> aosData, JsonArray array, JBMOptions options)
 	{
 		// Must be an array of objects
 		if (!array.All(x => x is JsonObject))
 		{
-			return;
+			return array;
 		}
 
 		var flatObjs = array.Cast<JsonObject>().Select(FlattenNode).ToList();
@@ -110,15 +180,23 @@ public static class AosConverter
 		var allKeys = flatObjs.SelectMany(x => x.Select(x => x.Key)).ToHashSet();
 		var optKeys = allKeys
 			.Select(kkey => {
-				bool hasNull = false;
 				int cnt = 0;
+				bool hasNull = false;
+				bool hasNum = false;
 
 				foreach (var flatObj in flatObjs)
 				{
 					if (flatObj.TryGetValue(kkey, out var node))
 					{
 						cnt++;
-						hasNull = hasNull || node is null;
+						if (node is null)
+						{
+							hasNull = true;
+						}
+						else if (node.GetValueKind() == JsonValueKind.Number)
+						{
+							hasNum = true;
+						}
 					}
 				}
 
@@ -127,18 +205,25 @@ public static class AosConverter
 				{
 					opt = ArrOpt.All;
 				}
-				else if (cnt > flatObjs.Count / 2 && !hasNull)
+				else if (cnt > flatObjs.Count / options.AosMinSparseFraction)
 				{
-					opt = ArrOpt.NonNull;
+					if (!hasNull)
+					{
+						opt = ArrOpt.SkipNull;
+					}
+					else if (!hasNum)
+					{
+						opt = ArrOpt.SkipNum;
+					}
 				}
 
-				return (kkey, opt);
+				return new KeyData(kkey, opt);
 			})
 			.ToArray();
 
-		if (optKeys.All(x => x.opt == ArrOpt.None))
+		if (optKeys.All(x => x.Opt == ArrOpt.None))
 		{
-			return;
+			return array;
 		}
 
 		var ptrToArr = JsonPointer.Parse(array.GetPointerFromRoot());
@@ -150,42 +235,58 @@ public static class AosConverter
 				continue;
 			}
 
-			var arr = new JsonArray();
-			foreach (var flatObj in flatObjs)
+			// If all elements are just a empty restore object or nonexistant we can skip this array
+			if (flatObjs.All(x => !x.TryGetValue(optKey, out var xval) || xval is JsonObject { Count: 0 }))
 			{
-				if (!flatObj.Remove(optKey, out var val))
-				{
-					if (optKind == ArrOpt.All)
-					{
-						throw new InvalidOperationException();
-					}
-				}
-				arr.Add(val);
+				continue;
 			}
 
 			var emptyType = optKind switch
 			{
 				ArrOpt.None => throw new InvalidOperationException(),
 				ArrOpt.All => JsonValueKind.Undefined,
-				ArrOpt.NonNull => JsonValueKind.Null,
+				ArrOpt.SkipNull => JsonValueKind.Null,
+				ArrOpt.SkipNum => JsonValueKind.Number,
 			};
 
-			aosData.Aos.GetOrAdd(ptrToArr.ToString(), () => new()).Add(optKey, new(emptyType, arr));
+			Func<JsonNode?> genNullFn = optKind switch
+			{
+				ArrOpt.None => throw new InvalidOperationException(),
+				ArrOpt.All => () => throw new InvalidOperationException("Type All should not have empty slots"),
+				ArrOpt.SkipNull => () => null,
+				ArrOpt.SkipNum => () => new JsonObject(),
+			};
+
+			var arr = new JsonArray();
+			foreach (var flatObj in flatObjs)
+			{
+				if (flatObj.Remove(optKey, out var val))
+				{
+					arr.Add(val);
+				}
+				else
+				{
+					arr.Add(genNullFn());
+				}
+			}
+
+			aosData.Aos.GetOrAdd(ptrToArr.ToString(), () => new()).Add(optKey.ToString(), new(emptyType, arr));
 		}
 
 		var unflatObjs = flatObjs.Select(UnflattenNode).ToArray();
 
 		if (unflatObjs.All(x => x.AsObject().Count == 0))
 		{
-			parent.Remove(key);
+			return null;
 		}
 		else
 		{
-			parent[key] = new JsonArray(unflatObjs);
+			return new JsonArray(unflatObjs);
 		}
 	}
 
-	public static JsonNode? Encode(JsonNode? node)
+
+	public static JsonNode? Encode(JsonNode? node, JBMOptions options)
 	{
 		if (node is null)
 		{
@@ -202,11 +303,11 @@ public static class AosConverter
 		{
 			Data = joClone,
 		};
-		FindCompressibleArrays(aos, joClone, null, "");
+		FindCompressibleArrays(aos, joClone, null, "", options);
 		return JsonSerializer.SerializeToNode(aos)!;
 	}
 
-	public static JsonNode Decode(AosData<JsonElement> aosDeser)
+	public static JsonNode Decode(AosData<JsonElement> aosDeser, JBMOptions options)
 	{
 		foreach (var aosArr in aosDeser.Aos)
 		{
@@ -240,4 +341,15 @@ public static class AosConverter
 
 		return aosDeser.Data;
 	}
+
+	private enum ArrOpt
+	{
+		None = 0,
+		All = 1,
+		SkipNull = 2,
+		SkipNum = 3,
+		SythObj = 4,
+	}
+
+	private record struct KeyData(JsonPointer Key, ArrOpt Opt);
 }

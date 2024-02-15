@@ -1,0 +1,52 @@
+{
+  "vals": [
+    {
+      "all_flat": "a",
+      // Miss sparse_flat
+      "all_obj_all_nest": { "all_nest": 1 },
+      "all_obj_sparse_nest": { "sparse_nest": 1 },
+      "sparse_obj_all_nest": { "all_nest": 1 },
+      "sparse_obj_sparse_nest": { "sparse_nest": 1 },
+      "all_obj_mix_nest": {
+        "all_nest": 1,
+        "sparse_nest": 1
+      }
+    },
+    {
+      "all_flat": "b",
+      "sparse_flat": "int",
+      "all_obj_all_nest": { "all_nest": 1 },
+      "all_obj_sparse_nest": { /* Miss sparse_nest */ },
+      "sparse_obj_all_nest": { "all_nest": 1 },
+      "sparse_obj_sparse_nest": { "sparse_nest": 1 },
+      "all_obj_mix_nest": {
+        "all_nest": 1,
+        "sparse_nest": 1
+      }
+    },
+    {
+      "all_flat": "c",
+      "sparse_flat": "int",
+      "all_obj_all_nest": { "all_nest": 1 },
+      "all_obj_sparse_nest": { "sparse_nest": 1 },
+      // Miss sparse_obj_all_nest
+      "sparse_obj_sparse_nest": { /* Miss sparse_nest */ },
+      "all_obj_mix_nest": {
+        "all_nest": 1,
+        "sparse_nest": 1
+      }
+    },
+    {
+      "all_flat": "d",
+      "sparse_flat": "int",
+      "all_obj_all_nest": { "all_nest": 1 },
+      "all_obj_sparse_nest": { "sparse_nest": 1 },
+      "sparse_obj_all_nest": { "all_nest": 1 },
+      // Miss sparse_obj_sparse_nest
+      "all_obj_mix_nest": {
+        "all_nest": 1,
+        // Miss sparse_nest
+      }
+    }
+  ]
+}
