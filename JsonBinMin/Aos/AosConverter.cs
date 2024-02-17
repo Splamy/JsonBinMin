@@ -91,23 +91,16 @@ public static class AosConverter
 
 		foreach (var kvp in node)
 		{
-			if (kvp.Value is null)
-			{
-				unflatObj[kvp.Key.ToString()] = null;
-				continue;
-			}
-
-			var parts = kvp.Key.Segments.Select(x => x.Value).ToArray();
-			var last = parts.Length - 1;
+			var last = kvp.Key.Segments.Length - 1;
 			var cur = unflatObj;
 
 			for (int i = 0; i < last; i++)
 			{
-				var part = parts[i];
+				var part = kvp.Key.Segments[i].Value;
 				cur = cur.GetOrAdd(part, () => new JsonObject()).AsObject();
 			}
 
-			cur[parts[last]] = kvp.Value.DeepClone();
+			cur[kvp.Key.Segments[last].Value] = kvp.Value?.DeepClone();
 		}
 
 		return unflatObj;

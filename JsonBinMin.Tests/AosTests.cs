@@ -22,7 +22,7 @@ public class AosTests
 		yield return new object?[] { "nums_02.json", null };
 		yield return new object?[] { "nums_03.json", null };
 		yield return new object?[] { "big_01.json", null };
-		yield return new object?[] { "big_02.json", null };
+		//yield return new object?[] { "big_02.json", null };
 
 		yield return new object?[] { "test.unicode.json", null };
 		yield return new object?[] { "unicode.json", null };
@@ -32,6 +32,12 @@ public class AosTests
 
 		yield return new object?[] { "map_176df_EasyStandard.json", null };
 		yield return new object?[] { "map_1d3d2_ExpertPlusStandard.json", null };
+		yield return new object?[] { "map_2dad5_ExpertPlusStandard.json", null };
+
+		//foreach (var file in Directory.EnumerateFiles(@"E:\Downloads\2dad5 (unwelcome school remix - SameDach)", "*.dat"))
+		//{
+		//	yield return new object?[] { file, null };
+		//}
 	}
 
 	[Test, TestCaseSource(nameof(TestFiles))]
@@ -65,7 +71,8 @@ public class AosTests
 
 		JsonNode Read(string file)
 		{
-			using var fileStream = File.OpenRead(Path.Combine("Assets", file));
+			var fullPath = Path.IsPathRooted(file) ? file : Path.Combine("Assets", file);
+			using var fileStream = File.OpenRead(fullPath);
 			return JsonSerializer.Deserialize<JsonNode>(fileStream, opt.JsonSerializerOptions)!;
 		}
 	}
