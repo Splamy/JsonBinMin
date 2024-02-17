@@ -39,3 +39,4 @@ jobs:
     - name: Publish packages
       run: |
         dotnet nuget push "publish/*.nupkg" --skip-duplicate -k ${{ secrets.GITHUB_TOKEN }} -s https://nuget.pkg.github.com/Splamy/index.json
+        dotnet nuget push "publish/*.nupkg" --skip-duplicate -k ${{ secrets.SPLAMY_BAGET_TOKEN }} -s https://baget.splamy.de/v3/index.json
