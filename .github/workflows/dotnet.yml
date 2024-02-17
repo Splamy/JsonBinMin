@@ -1,0 +1,41 @@
+name: 'ePlugin Build'
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      BUILD_CONFIG: 'Release'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build JsonBinMin --configuration $BUILD_CONFIG --no-restore
+
+    - name: Test
+      run: dotnet test --configuration $BUILD_CONFIG --verbosity normal
+
+    - name: Build packages
+      run: |
+        dotnet pack JsonBinMin --configuration $BUILD_CONFIG -o publish
+
+    - name: Publish packages
+      run: |
+        dotnet nuget push "publish/*.nupkg" --skip-duplicate -k ${{ secrets.GITHUB_TOKEN }} -s https://nuget.pkg.github.com/Splamy/index.json
