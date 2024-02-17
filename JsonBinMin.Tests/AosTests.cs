@@ -31,8 +31,9 @@ public class AosTests
 		yield return new object?[] { "map_176df_EasyStandard.json", null };
 		yield return new object?[] { "map_1d3d2_ExpertPlusStandard.json", null };
 		yield return new object?[] { "map_2dad5_ExpertPlusStandard.json", null };
+		yield return new object?[] { "map_386ea_ExpertStandard.json", null };
 
-		//foreach (var file in Directory.EnumerateFiles(@"E:\Downloads\2dad5 (unwelcome school remix - SameDach)", "*.dat"))
+		//foreach (var file in Directory.EnumerateFiles(@"E:\Downloads\386ea (Stop and Stare - RateGyro)", "*.dat"))
 		//{
 		//	yield return new object?[] { file, null };
 		//}

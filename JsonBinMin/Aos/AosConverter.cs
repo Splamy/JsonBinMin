@@ -247,7 +247,7 @@ public static class AosConverter
 				ArrOpt.None => throw new InvalidOperationException(),
 				ArrOpt.All => () => throw new InvalidOperationException("Type All should not have empty slots"),
 				ArrOpt.SkipNull => () => null,
-				ArrOpt.SkipNum => () => new JsonObject(),
+				ArrOpt.SkipNum => () => JsonValue.Create(0),
 			};
 
 			var arr = new JsonArray();
