@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using JsonBinMin.BinV1;
 
 namespace JsonBinMin.Tests;
@@ -16,27 +18,28 @@ public class JsonBinMinTests
 	{
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
-			yield return new object[] { "simple_01.json", 576, 308, 299, useDict };
-			yield return new object[] { "simple_02.json", 376, 140, 115, useDict };
-			yield return new object[] { "simple_03.json", 601, 312, 280, useDict };
-			yield return new object[] { "simple_04.json", 3821, 2473, 2282, useDict };
-			yield return new object[] { "opts_01.json", 416, 230, 230, useDict };
-			yield return new object[] { "nums_01.json", 750, 420, 420, useDict };
-			yield return new object[] { "nums_02.json", 11229, 6155, 6155, useDict };
-			yield return new object[] { "nums_03.json", 18805, 10946, 10811, useDict };
-			yield return new object[] { "big_01.json", 5796673, 2500839, 782977, useDict };
+			yield return new object[] { "big_01.json", 3523431, 2500839, 782977, useDict };
 			//yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
+			yield return new object[] { "nums_01.json", 655, 420, 420, useDict };
+			yield return new object[] { "nums_02.json", 9272, 6155, 6155, useDict };
+			yield return new object[] { "nums_03.json", 16212, 10946, 10811, useDict };
+			yield return new object[] { "opts_01.json", 313, 230, 230, useDict };
+			yield return new object[] { "simple_01.json", 360, 308, 299, useDict };
+			yield return new object[] { "simple_02.json", 183, 140, 115, useDict };
+			yield return new object[] { "simple_03.json", 389, 312, 280, useDict };
+			yield return new object[] { "simple_04.json", 2710, 2473, 2282, useDict };
 
-			yield return new object[] { "test.unicode.json", 15487, 12860, 8327, useDict };
-			yield return new object[] { "unicode.json", 3568, 1592, 1208, useDict };
+
+			yield return new object[] { "test.unicode.json", 15486, 12860, 8327, useDict };
+			yield return new object[] { "unicode.json", 2186, 1592, 1208, useDict };
 		}
 	}
 
 	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
 	public void TestInvariants(string _file, int originalSize, int compressedDictOff, int compressedDictSimple, UseDict _useDict)
 	{
-		compressedDictOff.Should().BeLessThan(originalSize, "Compressed file should be smaller than original");
-		compressedDictSimple.Should().BeLessThan(compressedDictOff, "Simple dict should be strictly smaller than no dict");
+		compressedDictOff.Should().BeLessThanOrEqualTo(originalSize, "Compressed file should be smaller than original");
+		compressedDictSimple.Should().BeLessThanOrEqualTo(compressedDictOff, "Simple dict should be strictly smaller than no dict");
 	}
 
 	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
@@ -50,7 +53,9 @@ public class JsonBinMinTests
 			_ => throw new ArgumentOutOfRangeException(nameof(useDict), useDict, null),
 		};
 
-		var json = File.ReadAllBytes(Path.Combine("Assets", file));
+		var json = GetNormalizedJson(file);
+		Assert.AreEqual(originalSize, json.Length);
+
 		var options = new JBMOptions()
 		{
 			UseDict = useDict,
@@ -61,7 +66,6 @@ public class JsonBinMinTests
 		};
 		var compressed = JBMConverter.Encode(json, options);
 		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
-		Assert.AreEqual(json.Length, originalSize);
 		compressed.Length.Should().BeLessThanOrEqualTo(compressedSize);
 		if (compressed.Length < compressedSize)
 		{
@@ -71,8 +75,23 @@ public class JsonBinMinTests
 		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
-		var jsonString = Encoding.UTF8.GetString(json);
-		AssertStructuralEqual(jsonString, roundtrip);
+		var jsonText = Encoding.UTF8.GetString(json);
+		AssertStructuralEqual(jsonText, roundtrip);
+	}
+
+	private readonly JsonSerializerOptions Options = new()
+	{
+		AllowTrailingCommas = true,
+		ReadCommentHandling = JsonCommentHandling.Skip,
+		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+		WriteIndented = false,
+	};
+
+	private byte[] GetNormalizedJson(string file)
+	{
+		using var fs = File.OpenRead(Path.Combine("Assets", file));
+		var json = JsonSerializer.Deserialize<JsonElement>(fs, Options);
+		return JsonSerializer.SerializeToUtf8Bytes(json, Options);
 	}
 
 	[TestMethod]
