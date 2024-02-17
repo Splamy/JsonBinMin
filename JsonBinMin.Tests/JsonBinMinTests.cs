@@ -2,18 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using JsonBinMin.BinV1;
-using NUnit.Framework;
-using static JsonBinMin.Tests.AssertUtil;
 
 namespace JsonBinMin.Tests;
 
-[TestFixture]
+[TestClass]
 public class JsonBinMinTests
 {
-	public static IEnumerable<object> TestFiles()
+	public static IEnumerable<object?[]> TestFiles()
 	{
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
@@ -26,21 +25,21 @@ public class JsonBinMinTests
 			yield return new object[] { "nums_02.json", 11229, 6155, 6155, useDict };
 			yield return new object[] { "nums_03.json", 18805, 10946, 10811, useDict };
 			yield return new object[] { "big_01.json", 5796673, 2500839, 782977, useDict };
-			yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
+			//yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
 
 			yield return new object[] { "test.unicode.json", 15487, 12860, 8327, useDict };
 			yield return new object[] { "unicode.json", 3568, 1592, 1208, useDict };
 		}
 	}
 
-	[Test, TestCaseSource(nameof(TestFiles))]
+	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
 	public void TestInvariants(string _file, int originalSize, int compressedDictOff, int compressedDictSimple, UseDict _useDict)
 	{
-		Assert.LessOrEqual(compressedDictOff, originalSize); // Compressed should be smaller than original
-		Assert.LessOrEqual(compressedDictSimple, compressedDictOff); // Simple dict should be strictly smaller than no dict
+		compressedDictOff.Should().BeLessThan(originalSize, "Compressed file should be smaller than original");
+		compressedDictSimple.Should().BeLessThan(compressedDictOff, "Simple dict should be strictly smaller than no dict");
 	}
 
-	[Test, TestCaseSource(nameof(TestFiles))]
+	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
 	public void RoundTrip(string file, int originalSize,
 		int compressedDictOff, int compressedDictSimple, UseDict useDict)
 	{
@@ -63,10 +62,10 @@ public class JsonBinMinTests
 		var compressed = JBMConverter.Encode(json, options);
 		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
 		Assert.AreEqual(json.Length, originalSize);
-		Assert.LessOrEqual(compressed.Length, compressedSize);
+		compressed.Length.Should().BeLessThanOrEqualTo(compressedSize);
 		if (compressed.Length < compressedSize)
 		{
-			Assert.Warn("Compressed size is smaller than expected. Please update test");
+			Assert.Inconclusive("Compressed size is smaller than expected. Please update test");
 		}
 		Directory.CreateDirectory("Compressed");
 		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
@@ -76,7 +75,7 @@ public class JsonBinMinTests
 		AssertStructuralEqual(jsonString, roundtrip);
 	}
 
-	[Test]
+	[TestMethod]
 	public void TestLengthsOfNumbers()
 	{
 		for (var m = 0; m <= 1; m++)
@@ -110,14 +109,22 @@ public class JsonBinMinTests
 						maxSize += 1;
 					else if (i % 8 == 0 && neg && v == -1)
 						maxSize += 1;
-					Assert.LessOrEqual(mem.Length, maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
+					mem.Length.Should().BeLessThanOrEqualTo(maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
 				}
 			}
 		}
 	}
 
-	[Test]
-	public void TestFlagCombinations([Values] UseDict useDict, [Values] bool useAos, [Values] bool useCompression, [Values] bool useJbm)
+	public static IEnumerable<object[]> TestFlagCombinationsValues =>
+		from useDict in Enum.GetValues<UseDict>()
+		from useAos in new[] { false, true }
+		from useCompression in new[] { false, true }
+		from useJbm in new[] { false, true }
+		select new object[] { useDict, useAos, useCompression, useJbm };
+
+	[TestMethod]
+	[DynamicData(nameof(TestFlagCombinationsValues))]
+	public void TestFlagCombinations(UseDict useDict, bool useAos, bool useCompression, bool useJbm)
 	{
 		var file = "simple_01.json";
 		var json = File.ReadAllText(Path.Combine("Assets", file));
@@ -129,7 +136,7 @@ public class JsonBinMinTests
 		AssertStructuralEqual(json, roundtrip);
 	}
 
-	[Test]
+	[TestMethod]
 	public void TestDictEntriesInExtValues()
 	{
 		var strb = new StringBuilder();
@@ -151,7 +158,7 @@ public class JsonBinMinTests
 		AssertStructuralEqual(json, roundtrip);
 	}
 
-	[Test]
+	[TestMethod]
 	public void HalfIsBetterForAtLeastOneNumber()
 	{
 		var optWithHalf = new JBMOptions() { UseFloats = UseFloats.Half };

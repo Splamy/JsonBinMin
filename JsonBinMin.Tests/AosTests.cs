@@ -3,15 +3,13 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using JsonBinMin.Aos;
-using NUnit.Framework;
-using NUnit.Framework.Internal;
 
 namespace JsonBinMin.Tests;
 
-[TestFixture]
+[TestClass]
 public class AosTests
 {
-	public static IEnumerable<object> TestFiles()
+	public static IEnumerable<object?[]> TestFiles()
 	{
 		yield return new object?[] { "simple_01.json", null };
 		yield return new object?[] { "simple_02.json", null };
@@ -40,7 +38,7 @@ public class AosTests
 		//}
 	}
 
-	[Test, TestCaseSource(nameof(TestFiles))]
+	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
 	public void AosRoundtrip(string file, string? aosFile)
 	{
 		var opt = new JBMOptions()
@@ -59,7 +57,7 @@ public class AosTests
 		{
 			var expectAosNode = Read(aosFile);
 			var expectAosText = expectAosNode.ToJsonString();
-			AssertUtil.AssertStructuralEqual(expectAosText, aosText);
+			AssertStructuralEqual(expectAosText, aosText);
 		}
 
 		var aosDecodeNode = JsonSerializer.Deserialize<AosData<JsonElement>>(aosText, opt.JsonSerializerOptions)!;
@@ -67,7 +65,7 @@ public class AosTests
 		var actualNode = AosConverter.Decode(aosDecodeNode, opt);
 		var actualText = actualNode.ToJsonString();
 
-		AssertUtil.AssertStructuralEqual(expectText, actualText);
+		AssertStructuralEqual(expectText, actualText);
 
 		JsonNode Read(string file)
 		{

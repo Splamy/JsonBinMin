@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Text.Json;
 using Json.Pointer;
-using NUnit.Framework;
 
 namespace JsonBinMin.Tests;
 
