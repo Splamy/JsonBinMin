@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -20,9 +21,9 @@ internal static class Util
 	public static JsonObject GetOrCreate(JsonObject obj, JsonPointer ptr)
 	{
 		var cur = obj;
-		foreach (var seg in ptr.Segments.Take(..^1))
+		foreach (var seg in ptr.ToString().TrimStart('/').Split('/').Take(..^1))
 		{
-			cur = (JsonObject)cur.GetOrAdd(seg.Value, () => new JsonObject())!;
+			cur = (JsonObject)cur.GetOrAdd(seg, () => new JsonObject())!;
 		}
 		return cur;
 	}
@@ -48,12 +49,12 @@ internal static class Util
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool IsPrefixOf(this JsonPointer self, JsonPointer subKey)
 	{
-		if (subKey.Segments.Length >= self.Segments.Length)
+		if (subKey.SegmentCount >= self.SegmentCount)
 			return false;
 
-		for (var i = 0; i < subKey.Segments.Length; i++)
+		for (var i = 0; i < subKey.SegmentCount; i++)
 		{
-			if (subKey.Segments[i] != self.Segments[i])
+			if (subKey[i] != self[i])
 				return false;
 		}
 

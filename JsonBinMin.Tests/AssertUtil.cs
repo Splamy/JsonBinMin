@@ -16,34 +16,34 @@ public static class AssertUtil
 
 	public static void AssertStructuralEqual(JsonElement jsonExpected, JsonElement jsonActual, JsonPointer dbgPath)
 	{
-		const string FailedOnPath = "Failed on path: {0}";
+		string FailedOnPath = $"Failed on path: {dbgPath}";
 
-		Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind, "Type mismatch on {0}", dbgPath);
+		Assert.AreEqual(jsonExpected.ValueKind, jsonActual.ValueKind, $"Type mismatch on {dbgPath}");
 		switch (jsonExpected.ValueKind)
 		{
 		case JsonValueKind.Object:
 			var o1 = jsonExpected.EnumerateObject().OrderBy(j => j.Name).ToList();
 			var o2 = jsonActual.EnumerateObject().OrderBy(j => j.Name).ToList();
 			if (o1.Count != o2.Count)
-				Assert.Fail("Object length mismatch on {0}", dbgPath);
+				Assert.Fail($"Object length mismatch on {dbgPath}");
 			foreach (var (expected, actual) in o1.Zip(o2))
 			{
-				Assert.AreEqual(expected.Name, actual.Name, FailedOnPath, dbgPath);
+				Assert.AreEqual(expected.Name, actual.Name, FailedOnPath);
 				AssertStructuralEqual(expected.Value, actual.Value, dbgPath.Combine(expected.Name));
 			}
 			break;
 		case JsonValueKind.Array:
 			if (jsonExpected.GetArrayLength() != jsonActual.GetArrayLength())
-				Assert.Fail("Array length mismatch on {0}", dbgPath);
+				Assert.Fail($"Array length mismatch on {dbgPath}");
 			int i = 0;
 			foreach (var (expected, actual) in jsonExpected.EnumerateArray().Zip(jsonActual.EnumerateArray()))
 				AssertStructuralEqual(expected, actual, dbgPath.Combine(i++));
 			break;
 		case JsonValueKind.String:
-			Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString(), FailedOnPath, dbgPath);
+			Assert.AreEqual(jsonExpected.GetString(), jsonActual.GetString(), FailedOnPath);
 			break;
 		case JsonValueKind.Number:
-			Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText(), FailedOnPath, dbgPath);
+			Assert.AreEqual(jsonExpected.GetRawText(), jsonActual.GetRawText(), FailedOnPath);
 			break;
 		case JsonValueKind.Undefined:
 		case JsonValueKind.True:

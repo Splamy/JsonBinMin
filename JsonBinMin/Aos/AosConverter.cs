@@ -91,16 +91,16 @@ public static class AosConverter
 
 		foreach (var kvp in node)
 		{
-			var last = kvp.Key.Segments.Length - 1;
+			var last = kvp.Key.SegmentCount - 1;
 			var cur = unflatObj;
 
 			for (int i = 0; i < last; i++)
 			{
-				var part = kvp.Key.Segments[i].Value;
+				var part = kvp.Key[i].ToString();
 				cur = cur.GetOrAdd(part, () => new JsonObject()).AsObject();
 			}
 
-			cur[kvp.Key.Segments[last].Value] = kvp.Value?.DeepClone();
+			cur[kvp.Key[last].ToString()] = kvp.Value?.DeepClone();
 		}
 
 		return unflatObj;
@@ -306,7 +306,7 @@ public static class AosConverter
 		{
 			var insertPtr = JsonPointer.Parse(aosArr.Key);
 			var parentObj = Util.GetOrCreate(aosDeser.Data, insertPtr);
-			var parentArr = parentObj.GetOrAdd(insertPtr.Segments.Last().Value, () => new JsonArray()).AsArray();
+			var parentArr = parentObj.GetOrAdd(insertPtr[insertPtr.SegmentCount - 1].ToString(), () => new JsonArray()).AsArray();
 
 			foreach (var aosField in aosArr.Value)
 			{
@@ -325,7 +325,7 @@ public static class AosConverter
 					if (elem.ValueKind != nullType)
 					{
 						var arrElemObj = Util.GetOrCreate(parentArr[i].AsObject(), fldPtr);
-						arrElemObj[fldPtr.Segments.Last().Value] = elem.ToJsonNode();
+						arrElemObj[fldPtr[fldPtr.SegmentCount -1].ToString()] = elem.ToJsonNode();
 					}
 					i++;
 				}
@@ -341,7 +341,6 @@ public static class AosConverter
 		All = 1,
 		SkipNull = 2,
 		SkipNum = 3,
-		SythObj = 4,
 	}
 
 	private record struct KeyData(JsonPointer Key, ArrOpt Opt);
