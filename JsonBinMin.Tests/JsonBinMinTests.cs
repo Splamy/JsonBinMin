@@ -18,20 +18,20 @@ public class JsonBinMinTests
 	{
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
-			yield return new object[] { "big_01.json", 3523431, 2500839, 782977, useDict };
+			yield return ["big_01.json", 3523431, 2500839, 782977, useDict];
 			//yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
-			yield return new object[] { "nums_01.json", 655, 420, 420, useDict };
-			yield return new object[] { "nums_02.json", 9272, 6155, 6155, useDict };
-			yield return new object[] { "nums_03.json", 16212, 10946, 10811, useDict };
-			yield return new object[] { "opts_01.json", 313, 230, 230, useDict };
-			yield return new object[] { "simple_01.json", 360, 308, 299, useDict };
-			yield return new object[] { "simple_02.json", 183, 140, 115, useDict };
-			yield return new object[] { "simple_03.json", 389, 312, 280, useDict };
-			yield return new object[] { "simple_04.json", 2710, 2473, 2282, useDict };
+			yield return ["nums_01.json", 655, 420, 420, useDict];
+			yield return ["nums_02.json", 9272, 6155, 6155, useDict];
+			yield return ["nums_03.json", 16212, 10946, 10811, useDict];
+			yield return ["opts_01.json", 313, 230, 230, useDict];
+			yield return ["simple_01.json", 360, 308, 299, useDict];
+			yield return ["simple_02.json", 183, 140, 115, useDict];
+			yield return ["simple_03.json", 389, 312, 280, useDict];
+			yield return ["simple_04.json", 2710, 2473, 2282, useDict];
 
 
-			yield return new object[] { "test.unicode.json", 15486, 12860, 8327, useDict };
-			yield return new object[] { "unicode.json", 2186, 1592, 1208, useDict };
+			yield return ["test.unicode.json", 15486, 12860, 8327, useDict];
+			yield return ["unicode.json", 2186, 1592, 1208, useDict];
 		}
 	}
 
@@ -205,7 +205,9 @@ public class JsonBinMinTests
 		}
 
 		if (found.Count == 0)
+		{
 			Assert.Fail();
+		}
 	}
 }
 

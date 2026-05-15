@@ -12,7 +12,7 @@ public static class AosConverter
 	{
 		if (node is JsonArray arr)
 		{
-			// Can't opmize arrays which are not on a object field
+			// Can't optimize arrays which are not on an object field
 			if (parent is null)
 			{
 				return;
@@ -111,11 +111,11 @@ public static class AosConverter
 		Dictionary<JsonPointer, KeyBuildData> keys = [];
 		foreach (var obj in elem.Cast<JsonObject>())
 		{
-			AnanlyzeKeysRec(keys, JsonPointer.Empty, obj);
+			AnalyzeKeysRec(keys, JsonPointer.Empty, obj);
 		}
 		return keys;
 
-		static void AnanlyzeKeysRec(Dictionary<JsonPointer, KeyBuildData> keys, JsonPointer ptr, JsonObject elem)
+		static void AnalyzeKeysRec(Dictionary<JsonPointer, KeyBuildData> keys, JsonPointer ptr, JsonObject elem)
 		{
 			foreach (var kvp in elem)
 			{
@@ -132,7 +132,7 @@ public static class AosConverter
 					}
 					else
 					{
-						AnanlyzeKeysRec(keys, flatKey, jo);
+						AnalyzeKeysRec(keys, flatKey, jo);
 					}
 				}
 				else

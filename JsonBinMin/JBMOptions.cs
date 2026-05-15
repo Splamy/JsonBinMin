@@ -47,6 +47,7 @@ public enum UseDict
 	Simple
 }
 
+[Flags]
 internal enum EncodeFlags : byte
 {
 	None = 0,
