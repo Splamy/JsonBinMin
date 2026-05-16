@@ -39,7 +39,7 @@ public class AosTests
 		//}
 	}
 
-	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
+	[TestMethod, DynamicData(nameof(TestFiles))]
 	public void AosRoundtrip(string file, string? aosFile)
 	{
 		var opt = new JBMOptions()

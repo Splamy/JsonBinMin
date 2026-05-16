@@ -22,7 +22,7 @@ public class JsonBinMinTests
 			//yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
 			yield return ["nums_01.json", 655, 420, 420, useDict];
 			yield return ["nums_02.json", 9272, 6155, 6155, useDict];
-			yield return ["nums_03.json", 16212, 10954, 10819, useDict];
+			yield return ["nums_03.json", 16212, 10946, 10811, useDict];
 			yield return ["opts_01.json", 313, 230, 230, useDict];
 			yield return ["simple_01.json", 360, 308, 299, useDict];
 			yield return ["simple_02.json", 183, 140, 115, useDict];
@@ -35,14 +35,16 @@ public class JsonBinMinTests
 		}
 	}
 
-	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
-	public void TestInvariants(string _file, int originalSize, int compressedDictOff, int compressedDictSimple, UseDict _useDict)
+	[TestMethod, DynamicData(nameof(TestFiles))]
+	public void TestInvariants(string _file, int originalSize, int compressedDictOff, int compressedDictSimple,
+		UseDict _useDict)
 	{
-		compressedDictOff.Should().BeLessThanOrEqualTo(originalSize, "Compressed file should be smaller than original");
-		compressedDictSimple.Should().BeLessThanOrEqualTo(compressedDictOff, "Simple dict should be strictly smaller than no dict");
+		compressedDictOff.ShouldBeLessThanOrEqualTo(originalSize, "Compressed file should be smaller than original");
+		compressedDictSimple.ShouldBeLessThanOrEqualTo(compressedDictOff,
+			"Simple dict should be strictly smaller than no dict");
 	}
 
-	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
+	[TestMethod, DynamicData(nameof(TestFiles))]
 	public void RoundTrip(string file, int originalSize,
 		int compressedDictOff, int compressedDictSimple, UseDict useDict)
 	{
@@ -66,20 +68,38 @@ public class JsonBinMinTests
 		};
 		var compressed = JBMConverter.Encode(json, options);
 		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
-		compressed.Length.Should().BeLessThanOrEqualTo(compressedSize);
-		if (compressed.Length < compressedSize)
-		{
-			Assert.Inconclusive("Compressed size is smaller than expected. Please update test");
-		}
+		compressed.Length.ShouldBeLessThanOrEqualTo(compressedSize);
+
+		var compressedExpect = GetExpectBytes(file, useDict);
+		CollectionAssert.AreEqual(compressedExpect, compressed, "Compressed output should match expected");
+
 		Directory.CreateDirectory("Compressed");
-		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
+		File.WriteAllBytes(Path.Combine("Compressed", GetExpectFileName(file, useDict)), compressed);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
 		var jsonText = Encoding.UTF8.GetString(json);
 		AssertStructuralEqual(jsonText, roundtrip);
+		
+		if (compressed.Length < compressedSize)
+		{
+			Assert.Inconclusive("Compressed size is smaller than expected. Please update test data." +
+			                    $"Expected size: {compressedSize}, actual size: {compressed.Length}");
+		}
+	}
+	
+	[TestMethod, DynamicData(nameof(TestFiles))]
+	public void BackwardsEqual(string file, int originalSize,
+		int compressedDictOff, int compressedDictSimple, UseDict useDict)
+	{
+		var compressed = GetExpectBytes(file, useDict);
+		var roundtrip = JBMConverter.DecodeToString(compressed);
+
+		var expectedJson = GetNormalizedJson(file);
+		var jsonText = Encoding.UTF8.GetString(expectedJson);
+		AssertStructuralEqual(jsonText, roundtrip);
 	}
 
-	private readonly JsonSerializerOptions Options = new()
+	private static JsonSerializerOptions Options => new()
 	{
 		AllowTrailingCommas = true,
 		ReadCommentHandling = JsonCommentHandling.Skip,
@@ -87,12 +107,18 @@ public class JsonBinMinTests
 		WriteIndented = false,
 	};
 
-	private byte[] GetNormalizedJson(string file)
+	private static byte[] GetNormalizedJson(string file)
 	{
 		using var fs = File.OpenRead(Path.Combine("Assets", file));
 		var json = JsonSerializer.Deserialize<JsonElement>(fs, Options);
 		return JsonSerializer.SerializeToUtf8Bytes(json, Options);
 	}
+
+	private static string GetExpectFileName(string file, UseDict useDict)
+		=> $"{file}.{useDict}.bin";
+
+	private static byte[] GetExpectBytes(string file, UseDict useDict)
+		=> File.ReadAllBytes(Path.Combine("Expects", GetExpectFileName(file, useDict)));
 
 	[TestMethod]
 	public void TestLengthsOfNumbers()
@@ -128,7 +154,8 @@ public class JsonBinMinTests
 						maxSize += 1;
 					else if (i % 8 == 0 && neg && v == -1)
 						maxSize += 1;
-					mem.Length.Should().BeLessThanOrEqualTo(maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
+					mem.Length.ShouldBeLessThanOrEqualTo(maxSize,
+						$"Number {formatted} should be stored in {maxSize} bytes");
 				}
 			}
 		}
@@ -148,7 +175,8 @@ public class JsonBinMinTests
 		var file = "simple_01.json";
 		var json = File.ReadAllText(Path.Combine("Assets", file));
 
-		var options = new JBMOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
+		var options =
+			new JBMOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
 		var compressed = JBMConverter.Encode(json, options);
 		var roundtrip = JBMConverter.DecodeToString(compressed);
 
@@ -167,6 +195,7 @@ public class JsonBinMinTests
 			if (i != num - 1)
 				strb.Append(',');
 		}
+
 		strb.Append(']');
 
 		var json = strb.ToString();

@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -139,30 +140,89 @@ internal class JBMEncoder
 	public static void WriteNumberValue(string numRaw, Stream output, JBMOptions options)
 	{
 		var num = numRaw.AsSpan();
+
+		if (TryWriteIntegerNumber(num, output))
+		{
+			return;
+		}
+
+		var numStr = GetNumStr(num);
+		var numStrLen = numStr.Length;
+
+		var upperE = num.Contains("E", StringComparison.Ordinal);
+		var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
+		if (tail0) num = num[..^2];
+
+		if (numStrLen >= 3
+			&& options.UseFloats.HasFlag(UseFloats.Half)
+			&& TryGetRoundtripSaveFloat(num, out Half halfVal))
+		{
+			Span<byte> buf = stackalloc byte[3];
+			buf[0] = GetWithFloatFlags(JBMType.Float16, tail0, upperE);
+			Util.Assert(BitConverter.TryWriteBytes(buf[1..], halfVal));
+			output.Write(buf);
+			return;
+		}
+
+		if (numStrLen >= 5
+			&& options.UseFloats.HasFlag(UseFloats.Single)
+			&& TryGetRoundtripSaveFloat(num, out float floatVal))
+		{
+			Span<byte> buf = stackalloc byte[5];
+			buf[0] = GetWithFloatFlags(JBMType.Float32, tail0, upperE);
+			Util.Assert(BitConverter.TryWriteBytes(buf[1..], floatVal));
+			output.Write(buf);
+			return;
+		}
+
+		if (numStrLen >= 9
+			&& options.UseFloats.HasFlag(UseFloats.Double)
+			&& TryGetRoundtripSaveFloat(num, out double doubleVal))
+		{
+			Span<byte> buf = stackalloc byte[9];
+			buf[0] = GetWithFloatFlags(JBMType.Float64, tail0, upperE);
+			Util.Assert(BitConverter.TryWriteBytes(buf[1..], doubleVal));
+			output.Write(buf);
+			return;
+		}
+		
+		output.Write(numStr);
+	}
+
+	private static bool TryWriteIntegerNumber(ReadOnlySpan<char> num, Stream output)
+	{
+		if (num.Contains('.'))
+		{
+			return false;
+		}
+
 		var numNeg = num.StartsWith("-");
 		var posNum = numNeg ? num[1..] : num;
-
+		
 		if (ulong.TryParse(posNum, NumberStyles.None, CultureInfo.InvariantCulture, out var integerVal))
+		{
 			switch (integerVal)
 			{
-			case <= Constants.JbmIntInlineMaxValue when !numNeg:
-				output.WriteByte((byte)((byte)JBMType.IntInline | integerVal));
-				return;
-			case <= Constants.JbmInt8MaxValue:
+				case <= Constants.JbmIntInlineMaxValue when !numNeg:
+					output.WriteByte((byte)((byte)JBMType.IntInline | integerVal));
+					return true;
+				case <= Constants.JbmInt8MaxValue:
 				{
-					ReadOnlySpan<byte> buf = [GetWithNegativeFlag(JBMType.Int8, numNeg), (byte)(integerVal - Constants.JbmInt8Offset)];
-					output.Write(buf);
-					return;
+					output.Write([
+						GetWithNegativeFlag(JBMType.Int8, numNeg),
+						(byte)(integerVal - Constants.JbmInt8Offset)
+					]);
+					return true;
 				}
-			case <= Constants.JbmInt16MaxValue:
+				case <= Constants.JbmInt16MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[3];
 					buf[0] = GetWithNegativeFlag(JBMType.Int16, numNeg);
 					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(integerVal - Constants.JbmInt16Offset));
 					output.Write(buf);
-					return;
+					return true;
 				}
-			case <= Constants.JbmInt24MaxValue:
+				case <= Constants.JbmInt24MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[4];
 					buf[0] = GetWithNegativeFlag(JBMType.Int24, numNeg);
@@ -170,17 +230,17 @@ internal class JBMEncoder
 					BinaryPrimitives.WriteUInt16LittleEndian(buf[1..], (ushort)(offsetVal & 0xFFFF));
 					buf[3] = (byte)(offsetVal >> 16 & 0xFF);
 					output.Write(buf);
-					return;
+					return true;
 				}
-			case <= Constants.JbmInt32MaxValue:
+				case <= Constants.JbmInt32MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[5];
 					buf[0] = GetWithNegativeFlag(JBMType.Int32, numNeg);
 					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(integerVal - Constants.JbmInt32Offset));
 					output.Write(buf);
-					return;
+					return true;
 				}
-			case <= Constants.JbmInt48MaxValue:
+				case <= Constants.JbmInt48MaxValue:
 				{
 					Span<byte> buf = stackalloc byte[7];
 					buf[0] = GetWithNegativeFlag(JBMType.Int48, numNeg);
@@ -188,9 +248,10 @@ internal class JBMEncoder
 					BinaryPrimitives.WriteUInt32LittleEndian(buf[1..], (uint)(offsetVal & 0xFFFFFFFF));
 					BinaryPrimitives.WriteUInt16LittleEndian(buf[5..], (ushort)(offsetVal >> 32 & 0xFFFF));
 					output.Write(buf);
-					return;
+					return true;
 				}
 			}
+		}
 
 		if (BigInteger.TryParse(posNum, out var bi))
 		{
@@ -200,7 +261,7 @@ internal class JBMEncoder
 				buf[0] = GetWithNegativeFlag(JBMType.Int64, numNeg);
 				BinaryPrimitives.WriteUInt64LittleEndian(buf[1..], (ulong)(bi - Constants.JbmInt64Offset));
 				output.Write(buf);
-				return;
+				return true;
 			}
 			else
 			{
@@ -217,54 +278,23 @@ internal class JBMEncoder
 				output.Write(buffer[..(1 + w1 + w2)]);
 			}
 
-			return;
+			return true;
 		}
-
-		var numStr = GetNumStr(num);
-		var numStrLen = numStr.Length;
-
-		var upperE = num.Contains("E", StringComparison.Ordinal);
-		var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
-		if (tail0) num = num[..^2];
-
-		if (numStrLen >= 3
-			&& options.UseFloats.HasFlag(UseFloats.Half)
-			&& Half.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var halfVal)
-			&& num.Equals(halfVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
-		{
-			Span<byte> buf = stackalloc byte[3];
-			buf[0] = GetWithFloatFlags(JBMType.Float16, tail0, upperE);
-			Util.Assert(BitConverter.TryWriteBytes(buf[1..], halfVal));
-			output.Write(buf);
-			return;
-		}
-
-		if (numStrLen >= 5
-			&& options.UseFloats.HasFlag(UseFloats.Single)
-			&& float.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatVal)
-			&& num.Equals(floatVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
-		{
-			Span<byte> buf = stackalloc byte[5];
-			buf[0] = GetWithFloatFlags(JBMType.Float32, tail0, upperE);
-			Util.Assert(BitConverter.TryWriteBytes(buf[1..], floatVal));
-			output.Write(buf);
-			return;
-		}
-
-		if (numStrLen >= 9
-			&& options.UseFloats.HasFlag(UseFloats.Double)
-			&& double.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleVal)
-			&& num.Equals(doubleVal.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
-		{
-			Span<byte> buf = stackalloc byte[9];
-			buf[0] = GetWithFloatFlags(JBMType.Float64, tail0, upperE);
-			Util.Assert(BitConverter.TryWriteBytes(buf[1..], doubleVal));
-			output.Write(buf);
-			return;
-		}
-		output.Write(numStr);
+		
+		return false;
 	}
 
+	private static bool TryGetRoundtripSaveFloat<T>(ReadOnlySpan<char> num, [MaybeNullWhen(false)] out T val) 
+		where T : IFloatingPoint<T>
+	{
+		if (!T.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out val))
+		{
+			return false;
+		}
+
+		return num.Equals(val.ToString(null, CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+	}
+	
 	private static bool TryWriteRleNum(Span<byte> data, BigInteger bi, out int written)
 	{
 		Debug.Assert(bi >= 0);
@@ -303,6 +333,7 @@ internal class JBMEncoder
 	}
 
 	private static byte GetWithNegativeFlag(JBMType t, bool n) => n ? (byte)((int)t | 1) : (byte)t;
+	
 	private static byte GetWithFloatFlags(JBMType t, bool tail0, bool upper)
 		=> (byte)((byte)t | (tail0 ? 2 : 0) | (upper ? 1 : 0));
 
