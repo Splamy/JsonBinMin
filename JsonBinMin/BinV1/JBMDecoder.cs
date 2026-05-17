@@ -221,10 +221,10 @@ internal partial class JbmDecoder(JbmOptions options)
 		{
 		case JbmType.Float16:
 			{
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatF16Length];
 				var val = BitConverter.ToHalf(data[1..]);
 				Util.Assert(val.TryFormat(buf, out var written,
-					JbmEncoder.RoundtripHalfFormat, CultureInfo.InvariantCulture));
+					Constants.RoundtripHalfFormat, CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0)
@@ -237,10 +237,10 @@ internal partial class JbmDecoder(JbmOptions options)
 			}
 		case JbmType.Float32:
 			{
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatF32Length];
 				var val = BitConverter.ToSingle(data[1..]);
 				Util.Assert(val.TryFormat(buf, out var written, 
-					JbmEncoder.RoundtripFloatFormat, CultureInfo.InvariantCulture));
+					Constants.RoundtripFloatFormat, CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0)
@@ -253,10 +253,10 @@ internal partial class JbmDecoder(JbmOptions options)
 			}
 		case JbmType.Float64:
 			{
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatDoubleLength];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatF64Length];
 				var val = BitConverter.ToDouble(data[1..]);
 				Util.Assert(val.TryFormat(buf, out var written, 
-					JbmEncoder.RoundtripDoubleFormat, CultureInfo.InvariantCulture));
+					Constants.RoundtripDoubleFormat, CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0)
@@ -281,7 +281,7 @@ internal partial class JbmDecoder(JbmOptions options)
 		case JbmType.Int8:
 			{
 				WriteSignByFlag(output, pick);
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatUInt64Length];
 				var val = data[1];
 				Util.Assert(Utf8Formatter.TryFormat(val + Constants.JbmInt8Offset, buf, out var written));
 				output.Write(buf[..written]);
@@ -291,7 +291,7 @@ internal partial class JbmDecoder(JbmOptions options)
 		case JbmType.Int16:
 			{
 				WriteSignByFlag(output, pick);
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatUInt64Length];
 				var val = BinaryPrimitives.ReadUInt16LittleEndian(data[1..]);
 				Util.Assert(Utf8Formatter.TryFormat(val + Constants.JbmInt16Offset, buf, out var written));
 				output.Write(buf[..written]);
@@ -301,7 +301,7 @@ internal partial class JbmDecoder(JbmOptions options)
 		case JbmType.Int24:
 			{
 				WriteSignByFlag(output, pick);
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatUInt64Length];
 				var valLow = (uint)BinaryPrimitives.ReadUInt16LittleEndian(data[1..]);
 				var valHigh = (uint)data[3];
 				var val = valHigh << 16 | valLow;
@@ -313,7 +313,7 @@ internal partial class JbmDecoder(JbmOptions options)
 		case JbmType.Int32:
 			{
 				WriteSignByFlag(output, pick);
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatUInt64Length];
 				var val = (ulong)BinaryPrimitives.ReadUInt32LittleEndian(data[1..]);
 				Util.Assert(Utf8Formatter.TryFormat(val + Constants.JbmInt32Offset, buf, out var written));
 				output.Write(buf[..written]);
@@ -323,7 +323,7 @@ internal partial class JbmDecoder(JbmOptions options)
 		case JbmType.Int48:
 			{
 				WriteSignByFlag(output, pick);
-				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
+				Span<byte> buf = stackalloc byte[Constants.MaxFormatUInt64Length];
 				var valLow = (ulong)BinaryPrimitives.ReadUInt32LittleEndian(data[1..]);
 				var valHigh = (ulong)BinaryPrimitives.ReadUInt16LittleEndian(data[5..]);
 				var val = valHigh << 32 | valLow;

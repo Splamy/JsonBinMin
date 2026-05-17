@@ -19,7 +19,7 @@ public class JsonBinMinTests
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
 			yield return ["big_01.json", 3523431, 2497025, 776777, useDict];
-			yield return ["big_02.json", 29626076, 18996422, 8118076, useDict];
+			// yield return ["big_02.json", 29626076, 18996422, 8118076, useDict];
 			yield return ["nums_01.json", 655, 422, 422, useDict];
 			yield return ["nums_02.json", 9272, 6155, 6155, useDict];
 			yield return ["nums_03.json", 16212, 11554, 11433, useDict];

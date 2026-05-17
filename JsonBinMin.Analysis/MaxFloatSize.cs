@@ -13,7 +13,7 @@ public static class MaxFloatSize
 			.Select(raw => {
 				var rawUshort = (ushort)raw;
 				var halfVal = Unsafe.As<ushort, Half>(ref rawUshort);
-				var strLen = halfVal.ToString(JbmEncoder.RoundtripHalfFormat, CultureInfo.InvariantCulture).Length;
+				var strLen = halfVal.ToString(Constants.RoundtripHalfFormat, CultureInfo.InvariantCulture).Length;
 				return strLen;
 			})
 			.Max();
@@ -27,7 +27,21 @@ public static class MaxFloatSize
 			.Select(raw => {
 				var rawUInt = (uint)raw;
 				var half = Unsafe.As<uint, float>(ref rawUInt);
-				var strLen = half.ToString(JbmEncoder.RoundtripFloatFormat, CultureInfo.InvariantCulture).Length;
+				var strLen = half.ToString(Constants.RoundtripFloatFormat, CultureInfo.InvariantCulture).Length;
+				return strLen;
+			})
+			.Max();
+		return max + 1; // 1 for the sign bit
+	}
+	
+	public static int GetMaxDoubleSize()
+	{
+		var max = Enumerable.Range(0, int.MaxValue)
+			.AsParallel()
+			.Select(raw => {
+				var rawUInt = (ulong)raw;
+				var half = Unsafe.As<ulong, double>(ref rawUInt);
+				var strLen = half.ToString(Constants.RoundtripDoubleFormat, CultureInfo.InvariantCulture).Length;
 				return strLen;
 			})
 			.Max();

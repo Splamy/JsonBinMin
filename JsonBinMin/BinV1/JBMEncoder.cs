@@ -13,11 +13,6 @@ namespace JsonBinMin.BinV1;
 internal class JbmEncoder
 {
 	internal const int ScratchBufferSize = 128;
-	internal const string RoundtripHalfFormat = "G5";
-	internal const string RoundtripFloatFormat = "G9";
-	internal const string RoundtripDoubleFormat = "G17";
-	private const int MaxHalfStringLength = 11; // Determined by static analysis.
-	private const int MaxFloatStringLength = 15; // Determined by static analysis.
 	private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
 	private readonly JbmOptions _options;
 	private readonly DictBuilder _dict;
@@ -191,9 +186,10 @@ internal class JbmEncoder
 			num = num[..^2];
 		}
 
-		if (numStrLen >= 3 && numRaw.Length <= MaxHalfStringLength
+		if (numStrLen >= 3
+		    && numRaw.Length <= Constants.MaxFormatF16Length
 		    && options.UseFloats.HasFlag(UseFloats.Half)
-		    && TryGetRoundtripSaveFloat(num, RoundtripHalfFormat, out Half halfVal))
+		    && TryGetRoundtripSaveFloat(num, Constants.RoundtripHalfFormat, out Half halfVal))
 		{
 			Span<byte> buf = output.AppendSpan(3);
 			buf[0] = GetWithFloatFlags(JbmType.Float16, tail0, upperE);
@@ -201,9 +197,10 @@ internal class JbmEncoder
 			return;
 		}
 
-		if (numStrLen >= 5 && numRaw.Length <= MaxFloatStringLength
+		if (numStrLen >= 5
+		    && numRaw.Length <= Constants.MaxFormatF32Length
 		    && options.UseFloats.HasFlag(UseFloats.Single)
-		    && TryGetRoundtripSaveFloat(num, RoundtripFloatFormat, out float floatVal))
+		    && TryGetRoundtripSaveFloat(num, Constants.RoundtripFloatFormat, out float floatVal))
 		{
 			Span<byte> buf = output.AppendSpan(5);
 			buf[0] = GetWithFloatFlags(JbmType.Float32, tail0, upperE);
@@ -213,7 +210,7 @@ internal class JbmEncoder
 
 		if (numStrLen >= 9
 		    && options.UseFloats.HasFlag(UseFloats.Double)
-		    && TryGetRoundtripSaveFloat(num, RoundtripDoubleFormat, out double doubleVal))
+		    && TryGetRoundtripSaveFloat(num, Constants.RoundtripDoubleFormat, out double doubleVal))
 		{
 			Span<byte> buf = output.AppendSpan(9);
 			buf[0] = GetWithFloatFlags(JbmType.Float64, tail0, upperE);
