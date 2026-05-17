@@ -1,8 +1,8 @@
-﻿using static JsonBinMin.JBMDecoder.DecodePoint;
+﻿using static JsonBinMin.BinV1.JbmDecoder.DecodePoint;
 
-namespace JsonBinMin;
+namespace JsonBinMin.BinV1;
 
-internal partial class JBMDecoder
+internal partial class JbmDecoder
 {
 	internal static ReadOnlySpan<byte> DecodeMap => [
 		IntInline, IntInline, IntInline, IntInline, IntInline, IntInline, IntInline, IntInline,

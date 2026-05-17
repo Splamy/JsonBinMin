@@ -11,27 +11,27 @@ public class AosTests
 {
 	public static IEnumerable<object?[]> TestFiles()
 	{
-		yield return new object?[] { "simple_01.json", null };
-		yield return new object?[] { "simple_02.json", null };
-		yield return new object?[] { "simple_03.json", null };
-		yield return new object?[] { "simple_04.json", null };
-		yield return new object?[] { "opts_01.json", null };
-		yield return new object?[] { "nums_01.json", null };
-		yield return new object?[] { "nums_02.json", null };
-		yield return new object?[] { "nums_03.json", null };
-		yield return new object?[] { "big_01.json", null };
+		yield return ["simple_01.json", null];
+		yield return ["simple_02.json", null];
+		yield return ["simple_03.json", null];
+		yield return ["simple_04.json", null];
+		yield return ["opts_01.json", null];
+		yield return ["nums_01.json", null];
+		yield return ["nums_02.json", null];
+		yield return ["nums_03.json", null];
+		yield return ["big_01.json", null];
 		//yield return new object?[] { "big_02.json", null };
 
-		yield return new object?[] { "test.unicode.json", null };
-		yield return new object?[] { "unicode.json", null };
+		yield return ["test.unicode.json", null];
+		yield return ["unicode.json", null];
 
-		yield return new object?[] { "aos1.json", "aos1.expect.json" };
-		yield return new object?[] { "aos2.json", "aos2.expect.json" };
+		yield return ["aos1.json", "aos1.expect.json"];
+		yield return ["aos2.json", "aos2.expect.json"];
 
-		yield return new object?[] { "map_176df_EasyStandard.json", null };
-		yield return new object?[] { "map_1d3d2_ExpertPlusStandard.json", null };
-		yield return new object?[] { "map_2dad5_ExpertPlusStandard.json", null };
-		yield return new object?[] { "map_386ea_ExpertStandard.json", null };
+		yield return ["map_176df_EasyStandard.json", null];
+		yield return ["map_1d3d2_ExpertPlusStandard.json", null];
+		yield return ["map_2dad5_ExpertPlusStandard.json", null];
+		yield return ["map_386ea_ExpertStandard.json", null];
 
 		//foreach (var file in Directory.EnumerateFiles(@"E:\Downloads\386ea (Stop and Stare - RateGyro)", "*.dat"))
 		//{
@@ -39,10 +39,10 @@ public class AosTests
 		//}
 	}
 
-	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
+	[TestMethod, DynamicData(nameof(TestFiles))]
 	public void AosRoundtrip(string file, string? aosFile)
 	{
-		var opt = new JBMOptions()
+		var opt = new JbmOptions()
 		{
 			AosMinArraySize = 2,
 			AosMinSparseFraction = 4,

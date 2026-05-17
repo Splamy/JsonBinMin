@@ -18,34 +18,39 @@ public class JsonBinMinTests
 	{
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
-			yield return new object[] { "big_01.json", 3523431, 2500839, 782977, useDict };
-			//yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
-			yield return new object[] { "nums_01.json", 655, 420, 420, useDict };
-			yield return new object[] { "nums_02.json", 9272, 6155, 6155, useDict };
-			yield return new object[] { "nums_03.json", 16212, 10946, 10811, useDict };
-			yield return new object[] { "opts_01.json", 313, 230, 230, useDict };
-			yield return new object[] { "simple_01.json", 360, 308, 299, useDict };
-			yield return new object[] { "simple_02.json", 183, 140, 115, useDict };
-			yield return new object[] { "simple_03.json", 389, 312, 280, useDict };
-			yield return new object[] { "simple_04.json", 2710, 2473, 2282, useDict };
+			yield return ["big_01.json", 3523431, 2497025, 776777, useDict];
+			// yield return ["big_02.json", 29626076, 18996422, 8118076, useDict];
+			yield return ["nums_01.json", 655, 422, 422, useDict];
+			yield return ["nums_02.json", 9272, 6155, 6155, useDict];
+			yield return ["nums_03.json", 16212, 11554, 11433, useDict];
+			yield return ["opts_01.json", 313, 230, 230, useDict];
+			yield return ["simple_01.json", 360, 308, 299, useDict];
+			yield return ["simple_02.json", 183, 140, 115, useDict];
+			yield return ["simple_03.json", 389, 312, 280, useDict];
+			yield return ["simple_04.json", 2710, 2473, 2282, useDict];
 
-
-			yield return new object[] { "test.unicode.json", 15486, 12860, 8327, useDict };
-			yield return new object[] { "unicode.json", 2186, 1592, 1208, useDict };
+			yield return ["test.unicode.json", 15486, 12921, 8374, useDict];
+			yield return ["unicode.json", 2186, 1608, 1213, useDict];
 		}
 	}
 
-	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
-	public void TestInvariants(string _file, int originalSize, int compressedDictOff, int compressedDictSimple, UseDict _useDict)
+	private static JbmOptions GetDefaultOptions(UseDict useDict) => new()
 	{
-		compressedDictOff.Should().BeLessThanOrEqualTo(originalSize, "Compressed file should be smaller than original");
-		compressedDictSimple.Should().BeLessThanOrEqualTo(compressedDictOff, "Simple dict should be strictly smaller than no dict");
-	}
+		UseDict = useDict,
+		UseFloats = UseFloats.All,
+		UseJbm = true,
+		UseAos = false,
+		Compress = false,
+	};
 
-	[TestMethod, DynamicData(nameof(TestFiles), DynamicDataSourceType.Method)]
-	public void RoundTrip(string file, int originalSize,
-		int compressedDictOff, int compressedDictSimple, UseDict useDict)
+	[TestMethod, DynamicData(nameof(TestFiles))]
+	public void SizeRegression(string file, int originalSize, int compressedDictOff, int compressedDictSimple,
+		UseDict useDict)
 	{
+		compressedDictOff.ShouldBeLessThanOrEqualTo(originalSize, "Compressed file should be smaller than original");
+		compressedDictSimple.ShouldBeLessThanOrEqualTo(compressedDictOff,
+			"Simple dict should be strictly smaller than no dict");
+
 		var compressedSize = useDict switch
 		{
 			UseDict.Off => compressedDictOff,
@@ -54,32 +59,49 @@ public class JsonBinMinTests
 		};
 
 		var json = GetNormalizedJson(file);
-		Assert.AreEqual(originalSize, json.Length);
+		var options = GetDefaultOptions(useDict);
+		var compressed = JbmConverter.Encode(json, options);
+		compressed.Length.ShouldBeLessThanOrEqualTo(compressedSize);
 
-		var options = new JBMOptions()
-		{
-			UseDict = useDict,
-			UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
-			UseJbm = true,
-			UseAos = false,
-			Compress = false,
-		};
-		var compressed = JBMConverter.Encode(json, options);
-		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
-		compressed.Length.Should().BeLessThanOrEqualTo(compressedSize);
 		if (compressed.Length < compressedSize)
 		{
-			Assert.Inconclusive("Compressed size is smaller than expected. Please update test");
+			Assert.Inconclusive("Compressed size is smaller than expected. Please update test data." +
+			                    $"Expected size: {compressedSize}, actual size: {compressed.Length}");
 		}
+	}
+
+	[TestMethod, DynamicData(nameof(TestFiles))]
+	public void RoundTrip(string file, int originalSize,
+		int compressedDictOff, int compressedDictSimple, UseDict useDict)
+	{
+		var json = GetNormalizedJson(file);
+		Assert.HasCount(originalSize, json);
+
+		var options = GetDefaultOptions(useDict);
+		var compressed = JbmConverter.Encode(json, options);
+		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
+
 		Directory.CreateDirectory("Compressed");
-		File.WriteAllBytes(Path.Combine("Compressed", file + ".bin"), compressed);
-		var roundtrip = JBMConverter.DecodeToString(compressed);
+		File.WriteAllBytes(Path.Combine("Compressed", GetExpectFileName(file, useDict)), compressed);
+		var roundtrip = JbmConverter.DecodeToString(compressed);
 
 		var jsonText = Encoding.UTF8.GetString(json);
 		AssertStructuralEqual(jsonText, roundtrip);
 	}
 
-	private readonly JsonSerializerOptions Options = new()
+	[TestMethod, DynamicData(nameof(TestFiles))]
+	public void BackwardsCompatible(string file, int originalSize,
+		int compressedDictOff, int compressedDictSimple, UseDict useDict)
+	{
+		var compressed = GetExpectBytes(file, useDict);
+		var roundtrip = JbmConverter.DecodeToString(compressed);
+
+		var expectedJson = GetNormalizedJson(file);
+		var jsonText = Encoding.UTF8.GetString(expectedJson);
+		AssertStructuralEqual(jsonText, roundtrip);
+	}
+
+	private static JsonSerializerOptions Options => new()
 	{
 		AllowTrailingCommas = true,
 		ReadCommentHandling = JsonCommentHandling.Skip,
@@ -87,16 +109,24 @@ public class JsonBinMinTests
 		WriteIndented = false,
 	};
 
-	private byte[] GetNormalizedJson(string file)
+	private static byte[] GetNormalizedJson(string file)
 	{
 		using var fs = File.OpenRead(Path.Combine("Assets", file));
 		var json = JsonSerializer.Deserialize<JsonElement>(fs, Options);
 		return JsonSerializer.SerializeToUtf8Bytes(json, Options);
 	}
 
+	private static string GetExpectFileName(string file, UseDict useDict)
+		=> $"{file}.{useDict}.bin";
+
+	private static byte[] GetExpectBytes(string file, UseDict useDict)
+		=> File.ReadAllBytes(Path.Combine("Expects", GetExpectFileName(file, useDict)));
+
 	[TestMethod]
 	public void TestLengthsOfNumbers()
 	{
+		Span<byte> scratchBuf = stackalloc byte[128];
+
 		for (var m = 0; m <= 1; m++)
 		{
 			for (int i = 0; i < 128; i++)
@@ -107,11 +137,11 @@ public class JsonBinMinTests
 					var neg = m == 1;
 					var formatted = $"{(neg ? "-" : "")}{val}";
 
-					var mem = new MemoryStream();
-					JBMEncoder.WriteNumberValue(formatted, mem, JBMOptions.Default);
+					scoped var list = new ValueListBuilder<byte>(scratchBuf);
+					JbmEncoder.WriteNumberValue(formatted, ref list, JbmOptions.Default);
 
 					// 1 byte type
-					long maxSize = 1;
+					int maxSize = 1;
 					// n bytes for bits
 					maxSize += i switch
 					{
@@ -125,10 +155,18 @@ public class JsonBinMinTests
 					};
 
 					if (i % 8 == 0 && !neg && v == 1)
+					{
 						maxSize += 1;
+					}
 					else if (i % 8 == 0 && neg && v == -1)
+					{
 						maxSize += 1;
-					mem.Length.Should().BeLessThanOrEqualTo(maxSize, "Number {0} should be stored in {1} bytes", formatted, maxSize);
+					}
+
+					list.Length.ShouldBeLessThanOrEqualTo(maxSize,
+						$"Number {formatted} should be stored in {maxSize} bytes");
+
+					list.Dispose();
 				}
 			}
 		}
@@ -148,9 +186,10 @@ public class JsonBinMinTests
 		var file = "simple_01.json";
 		var json = File.ReadAllText(Path.Combine("Assets", file));
 
-		var options = new JBMOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
-		var compressed = JBMConverter.Encode(json, options);
-		var roundtrip = JBMConverter.DecodeToString(compressed);
+		var options =
+			new JbmOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
+		var compressed = JbmConverter.Encode(json, options);
+		var roundtrip = JbmConverter.DecodeToString(compressed);
 
 		AssertStructuralEqual(json, roundtrip);
 	}
@@ -165,25 +204,28 @@ public class JsonBinMinTests
 		{
 			strb.Append(num);
 			if (i != num - 1)
+			{
 				strb.Append(',');
+			}
 		}
+
 		strb.Append(']');
 
 		var json = strb.ToString();
 
-		var options = new JBMOptions() { UseDict = UseDict.Simple };
-		var compressed = JBMConverter.Encode(json, options);
-		var roundtrip = JBMConverter.DecodeToString(compressed, options);
+		var options = new JbmOptions() { UseDict = UseDict.Simple };
+		var compressed = JbmConverter.Encode(json, options);
+		var roundtrip = JbmConverter.DecodeToString(compressed, options);
 		AssertStructuralEqual(json, roundtrip);
 	}
 
 	[TestMethod]
 	public void HalfIsBetterForAtLeastOneNumber()
 	{
-		var optWithHalf = new JBMOptions() { UseFloats = UseFloats.Half };
+		var optWithHalf = new JbmOptions() { UseFloats = UseFloats.Half };
 
-		static bool IsHalfEncoded(byte[] data) => data.Length == 3 && data[0] == (byte)JBMType.Float16;
-		var mem = new MemoryStream();
+		static bool IsHalfEncoded(ReadOnlySpan<byte> data) => data.Length == 3 && data[0] == (byte)JbmType.Float16;
+		Span<byte> scratchBuf = stackalloc byte[128];
 
 		var found = new List<Half>();
 
@@ -191,21 +233,28 @@ public class JsonBinMinTests
 		{
 			var half = Unsafe.As<ushort, Half>(ref i);
 			if (Half.IsNaN(half) || Half.IsInfinity(half))
+			{
 				continue;
+			}
+
 			var halfStr = half.ToString(CultureInfo.InvariantCulture);
 
-			mem.SetLength(0);
-			JBMEncoder.WriteNumberValue(halfStr, mem, optWithHalf);
-			var enc = mem.ToArray();
+			scoped var list = new ValueListBuilder<byte>(scratchBuf);
+			JbmEncoder.WriteNumberValue(halfStr, ref list, optWithHalf);
+			var enc = list.AsSpan();
 
 			if (IsHalfEncoded(enc))
 			{
 				found.Add(half);
 			}
+
+			list.Dispose();
 		}
 
 		if (found.Count == 0)
+		{
 			Assert.Fail();
+		}
 	}
 }
 

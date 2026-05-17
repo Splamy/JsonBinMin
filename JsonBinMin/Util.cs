@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -11,18 +12,21 @@ namespace JsonBinMin;
 
 internal static class Util
 {
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void Assert(bool assure)
 	{
 		if (!assure)
+		{
 			Trace.Fail("Invariant error");
+		}
 	}
 
 	public static JsonObject GetOrCreate(JsonObject obj, JsonPointer ptr)
 	{
 		var cur = obj;
-		foreach (var seg in ptr.Segments.Take(..^1))
+		foreach (var seg in ptr.ToString().TrimStart('/').Split('/').Take(..^1))
 		{
-			cur = (JsonObject)cur.GetOrAdd(seg.Value, () => new JsonObject())!;
+			cur = (JsonObject)cur.GetOrAdd(seg, () => new JsonObject())!;
 		}
 		return cur;
 	}
@@ -48,13 +52,17 @@ internal static class Util
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool IsPrefixOf(this JsonPointer self, JsonPointer subKey)
 	{
-		if (subKey.Segments.Length >= self.Segments.Length)
-			return false;
-
-		for (var i = 0; i < subKey.Segments.Length; i++)
+		if (subKey.SegmentCount >= self.SegmentCount)
 		{
-			if (subKey.Segments[i] != self.Segments[i])
+			return false;
+		}
+
+		for (var i = 0; i < subKey.SegmentCount; i++)
+		{
+			if (subKey[i] != self[i])
+			{
 				return false;
+			}
 		}
 
 		return true;

@@ -1,15 +1,15 @@
 ﻿using JsonBinMin.BinV1;
-using static JsonBinMin.JBMDecoder;
+using static JsonBinMin.BinV1.JbmDecoder;
 
 namespace JsonBinMin.Analysis;
 
-internal class JBMAnalyzer
+internal class JbmAnalyzer
 {
-	private readonly JBMDecoder decoder = new();
+	private readonly JbmDecoder decoder = new();
 
 	public static AnalysisReport Analyze(ReadOnlySpan<byte> data)
 	{
-		var analyzer = new JBMAnalyzer();
+		var analyzer = new JbmAnalyzer();
 		var report = new AnalysisReport();
 		while (analyzer.Analyze(report, data, out data)) ;
 		return report;
@@ -31,13 +31,13 @@ internal class JBMAnalyzer
 		{
 		case DecodePoint.IntInline:
 			{
-				report.TrackType(JBMType.IntInline);
-				report.TrackInteger(JBMType.IntInline, 1);
+				report.TrackType(JbmType.IntInline);
+				report.TrackInteger(JbmType.IntInline, 1);
 				decoder.Parse(data, out rest);
 				return false;
 			}
 		case DecodePoint.DObject:
-			report.TrackType(JBMType.Object);
+			report.TrackType(JbmType.Object);
 
 			AnalyzeSqueezedNumber(report, data);
 			var objElemCount = decoder.ReadNumberToInt(data, out data);
@@ -50,7 +50,7 @@ internal class JBMAnalyzer
 			return false;
 
 		case DecodePoint.DArray:
-			report.TrackType(JBMType.Array);
+			report.TrackType(JbmType.Array);
 
 			AnalyzeSqueezedNumber(report, data);
 			var arrElemCount = decoder.ReadNumberToInt(data, out data);
@@ -62,62 +62,62 @@ internal class JBMAnalyzer
 			return false;
 
 		case DecodePoint.DString:
-			report.TrackType(JBMType.String);
+			report.TrackType(JbmType.String);
 
 			AnalyzeSqueezedNumber(report, data);
 			decoder.ReadString(Stream.Null, data, out rest);
 			return false;
 
 		case DecodePoint.Block101:
-			report.TrackType((JBMType)(pick & 0b1_111_11_0_0));
+			report.TrackType((JbmType)(pick & 0b1_111_11_0_0));
 
-			switch ((JBMType)(pick & 0b1_111_11_0_0))
+			switch ((JbmType)(pick & 0b1_111_11_0_0))
 			{
-			case JBMType.Float16:
-				report.TrackInteger(JBMType.Float16, 2);
+			case JbmType.Float16:
+				report.TrackInteger(JbmType.Float16, 2);
 				break;
-			case JBMType.Float32:
-				report.TrackInteger(JBMType.Float32, 4);
+			case JbmType.Float32:
+				report.TrackInteger(JbmType.Float32, 4);
 				break;
-			case JBMType.Float64:
-				report.TrackInteger(JBMType.Float64, 8);
+			case JbmType.Float64:
+				report.TrackInteger(JbmType.Float64, 8);
 				break;
 			}
 			decoder.Parse(data, out rest);
 			return false;
 
 		case DecodePoint.Block110:
-			switch ((JBMType)(pick & 0b1_111_111_0))
+			switch ((JbmType)(pick & 0b1_111_111_0))
 			{
-			case JBMType.Int8:
-				report.TrackType(JBMType.Int8);
-				report.TrackInteger(JBMType.Int8, 1);
+			case JbmType.Int8:
+				report.TrackType(JbmType.Int8);
+				report.TrackInteger(JbmType.Int8, 1);
 				break;
-			case JBMType.Int16:
-				report.TrackType(JBMType.Int16);
-				report.TrackInteger(JBMType.Int16, 2);
+			case JbmType.Int16:
+				report.TrackType(JbmType.Int16);
+				report.TrackInteger(JbmType.Int16, 2);
 				break;
-			case JBMType.Int24:
-				report.TrackType(JBMType.Int24);
-				report.TrackInteger(JBMType.Int24, 2);
+			case JbmType.Int24:
+				report.TrackType(JbmType.Int24);
+				report.TrackInteger(JbmType.Int24, 2);
 				break;
-			case JBMType.Int32:
-				report.TrackType(JBMType.Int32);
-				report.TrackInteger(JBMType.Int32, 2);
+			case JbmType.Int32:
+				report.TrackType(JbmType.Int32);
+				report.TrackInteger(JbmType.Int32, 2);
 				break;
-			case JBMType.Int48:
-				report.TrackType(JBMType.Int48);
-				report.TrackInteger(JBMType.Int48, 2);
+			case JbmType.Int48:
+				report.TrackType(JbmType.Int48);
+				report.TrackInteger(JbmType.Int48, 2);
 				break;
-			case JBMType.Int64:
-				report.TrackType(JBMType.Int64);
-				report.TrackInteger(JBMType.Int64, 2);
+			case JbmType.Int64:
+				report.TrackType(JbmType.Int64);
+				report.TrackInteger(JbmType.Int64, 2);
 				break;
-			case JBMType.IntRle:
+			case JbmType.IntRle:
 				ReadBlock110(Stream.Null, data, out var read);
 				var len = data.Length - read.Length;
-				report.TrackType(JBMType.IntRle);
-				report.TrackInteger(JBMType.IntRle, len);
+				report.TrackType(JbmType.IntRle);
+				report.TrackInteger(JbmType.IntRle, len);
 				break;
 			}
 			decoder.Parse(data, out rest);
@@ -128,29 +128,29 @@ internal class JBMAnalyzer
 				ReadNumStr(Stream.Null, data, out rest);
 
 				var len = data.Length - rest.Length;
-				report.TrackType(JBMType.NumStr);
-				report.TrackInteger(JBMType.NumStr, len);
+				report.TrackType(JbmType.NumStr);
+				report.TrackInteger(JbmType.NumStr, len);
 				return false;
 			}
 
 		case DecodePoint.False:
-			report.TrackType(JBMType.False);
+			report.TrackType(JbmType.False);
 			rest = data[1..];
 			return false;
 
 		case DecodePoint.True:
-			report.TrackType(JBMType.True);
+			report.TrackType(JbmType.True);
 			rest = data[1..];
 			return false;
 
 		case DecodePoint.Null:
-			report.TrackType(JBMType.Null);
+			report.TrackType(JbmType.Null);
 			rest = data[1..];
 			return false;
 
 		case DecodePoint.MetaDictDef:
 			{
-				report.TrackType(JBMType.MetaDictDef);
+				report.TrackType(JbmType.MetaDictDef);
 
 				decoder.Parse(data, out rest);
 				report.DictElementsCount = decoder.Dict.Length;
@@ -167,15 +167,15 @@ internal class JBMAnalyzer
 	{
 		var pick = data[0];
 
-		switch ((JBMType)(pick & 0b1_111_0000))
+		switch ((JbmType)(pick & 0b1_111_0000))
 		{
-		case JBMType.Object:
-		case JBMType.Array:
-		case JBMType.String:
+		case JbmType.Object:
+		case JbmType.Array:
+		case JbmType.String:
 			var hVal = (data[0] & 0xF);
 			if (hVal < 0xF)
 			{
-				report.TrackInteger((JBMType)(pick & 0b1_111_0000), 1);
+				report.TrackInteger((JbmType)(pick & 0b1_111_0000), 1);
 				return;
 			}
 			Analyze(report, data[1..], out _);

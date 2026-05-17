@@ -7,35 +7,35 @@ using JsonBinMin.Brotli;
 
 namespace JsonBinMin;
 
-public class JBMConverter(JBMOptions options)
+public class JbmConverter(JbmOptions options)
 {
-	private readonly DictBuilder dictBuilder = new(options);
-	private readonly JBMOptions options = options;
+	private readonly DictBuilder _dictBuilder = new(options);
+	private readonly JbmOptions _options = options;
 
-	public JBMConverter() : this(JBMOptions.Default) { }
+	public JbmConverter() : this(JbmOptions.Default) { }
 
-	public static byte[] Encode(string json, JBMOptions? options = null)
+	public static byte[] Encode(string json, JbmOptions? options = null)
 	{
-		options ??= JBMOptions.Default;
+		options ??= JbmOptions.Default;
 		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return Encode(elem, options);
 	}
-	public static byte[] Encode(ReadOnlySpan<byte> json, JBMOptions? options = null)
+	public static byte[] Encode(ReadOnlySpan<byte> json, JbmOptions? options = null)
 	{
-		options ??= JBMOptions.Default;
+		options ??= JbmOptions.Default;
 		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
 		return Encode(elem, options);
 	}
-	public static byte[] EncodeObject<T>(T obj, JBMOptions? options = null)
+	public static byte[] EncodeObject<T>(T obj, JbmOptions? options = null)
 	{
-		options ??= JBMOptions.Default;
+		options ??= JbmOptions.Default;
 		var elem = JsonSerializer.SerializeToElement(obj, options.JsonSerializerOptions);
 		return Encode(elem, options);
 	}
-	public static byte[] Encode(JsonElement elem, JBMOptions? options = null)
+	public static byte[] Encode(JsonElement elem, JbmOptions? options = null)
 	{
-		var jbm = new JBMConverter(options ?? JBMOptions.Default);
-		if (jbm.options.UseDict != UseDict.Off)
+		var jbm = new JbmConverter(options ?? JbmOptions.Default);
+		if (jbm._options.UseDict != UseDict.Off)
 		{
 			jbm.AddToDictionary(elem);
 			jbm.FinalizeDictionary();
@@ -55,32 +55,37 @@ public class JBMConverter(JBMOptions options)
 	}
 	public void AddToDictionary(JsonElement elem)
 	{
-		if (options.UseDict == UseDict.Off)
+		if (_options.UseDict == UseDict.Off)
+		{
 			throw new NotSupportedException();
+		}
 
-		dictBuilder.BuildDictionary(elem);
+		_dictBuilder.BuildDictionary(elem);
 	}
 
 	public void FinalizeDictionary()
 	{
-		if (options.UseDict == UseDict.Off)
+		if (_options.UseDict == UseDict.Off)
+		{
 			throw new NotSupportedException();
-		dictBuilder.FinalizeDictionary();
+		}
+
+		_dictBuilder.FinalizeDictionary();
 	}
 
 	public byte[] EncodeEntity(string json)
 	{
-		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
+		var elem = JsonSerializer.Deserialize<JsonElement>(json, _options.JsonSerializerOptions);
 		return EncodeEntity(elem);
 	}
 	public byte[] EncodeEntity(ReadOnlySpan<byte> json)
 	{
-		var elem = JsonSerializer.Deserialize<JsonElement>(json, options.JsonSerializerOptions);
+		var elem = JsonSerializer.Deserialize<JsonElement>(json, _options.JsonSerializerOptions);
 		return EncodeEntity(elem);
 	}
 	public byte[] EncodeEntityObject<T>(T obj)
 	{
-		var elem = JsonSerializer.SerializeToElement(obj, options.JsonSerializerOptions);
+		var elem = JsonSerializer.SerializeToElement(obj, _options.JsonSerializerOptions);
 		return EncodeEntity(elem);
 	}
 	public byte[] EncodeEntity(JsonElement elem)
@@ -88,10 +93,10 @@ public class JBMConverter(JBMOptions options)
 		var flags = EncodeFlags.None;
 
 		JsonNode? aosOut;
-		if (options.UseAos)
+		if (_options.UseAos)
 		{
 			flags |= EncodeFlags.Aos;
-			aosOut = AosConverter.Encode(elem.ToJsonNode(), options);
+			aosOut = AosConverter.Encode(elem.ToJsonNode(), _options);
 		}
 		else
 		{
@@ -99,20 +104,20 @@ public class JBMConverter(JBMOptions options)
 		}
 
 		ReadOnlyMemory<byte> jbmOut;
-		if (options.UseJbm)
+		if (_options.UseJbm)
 		{
 			flags |= EncodeFlags.Jbm;
-			var ctx = new JBMEncoder(options, dictBuilder);
-			ctx.WriteValue(JsonSerializer.SerializeToElement(aosOut, options.JsonSerializerOptions));
-			jbmOut = ctx.output.GetBuffer().AsMemory(0, (int)ctx.output.Length);
+			var ctx = new JbmEncoder(_options, _dictBuilder);
+			ctx.WriteValue(JsonSerializer.SerializeToElement(aosOut, _options.JsonSerializerOptions));
+			jbmOut = ctx.Output.GetBuffer().AsMemory(0, (int)ctx.Output.Length);
 		}
 		else
 		{
-			jbmOut = JsonSerializer.SerializeToUtf8Bytes(aosOut, options.JsonSerializerOptions);
+			jbmOut = JsonSerializer.SerializeToUtf8Bytes(aosOut, _options.JsonSerializerOptions);
 		}
 
 		ReadOnlyMemory<byte> compressOut;
-		if (options.Compress)
+		if (_options.Compress)
 		{
 			flags |= EncodeFlags.Compressed;
 			compressOut = BrotliUtil.Compress(jbmOut.Span);
@@ -128,11 +133,14 @@ public class JBMConverter(JBMOptions options)
 		return ret;
 	}
 
-	private static ReadOnlyMemory<byte> DecodeToRomInternal(ReadOnlyMemory<byte> data, JBMOptions? options = null)
+	private static ReadOnlyMemory<byte> DecodeToRomInternal(ReadOnlyMemory<byte> data, JbmOptions? options = null)
 	{
 		if (data.Length == 0)
+		{
 			return ReadOnlyMemory<byte>.Empty;
-		options ??= JBMOptions.Default;
+		}
+
+		options ??= JbmOptions.Default;
 
 		var flags = (EncodeFlags)data.Span[0];
 		data = data[1..];
@@ -144,7 +152,7 @@ public class JBMConverter(JBMOptions options)
 
 		if (flags.HasFlag(EncodeFlags.Jbm))
 		{
-			var ctx = new JBMDecoder();
+			var ctx = new JbmDecoder(options);
 			var parsePos = data.Span;
 			while (ctx.Parse(parsePos, out parsePos)) ;
 			data = ctx.Output.GetBuffer().AsMemory(0, (int)ctx.Output.Length);
@@ -153,24 +161,24 @@ public class JBMConverter(JBMOptions options)
 		if (flags.HasFlag(EncodeFlags.Aos))
 		{
 			var aosData = JsonSerializer.Deserialize<AosData<JsonElement>>(data.Span, options.JsonSerializerOptions)!;
-			var aosDocoded = AosConverter.Decode(aosData, options);
-			data = JsonSerializer.SerializeToUtf8Bytes(aosDocoded, options.JsonSerializerOptions);
+			var aosDecoded = AosConverter.Decode(aosData, options);
+			data = JsonSerializer.SerializeToUtf8Bytes(aosDecoded, options.JsonSerializerOptions);
 		}
 
 		return data;
 	}
-	public static Stream DecodeToStream(ReadOnlyMemory<byte> data, JBMOptions? options = null) => new MemoryStream(DecodeToRomInternal(data, options).ToArray());
-	public static byte[] DecodeToBytes(ReadOnlyMemory<byte> data, JBMOptions? options = null)
+	public static Stream DecodeToStream(ReadOnlyMemory<byte> data, JbmOptions? options = null) => new MemoryStream(DecodeToRomInternal(data, options).ToArray());
+	public static byte[] DecodeToBytes(ReadOnlyMemory<byte> data, JbmOptions? options = null)
 	{
 		var stream = DecodeToRomInternal(data, options);
 		return stream.ToArray();
 	}
-	public static string DecodeToString(ReadOnlyMemory<byte> data, JBMOptions? options = null)
+	public static string DecodeToString(ReadOnlyMemory<byte> data, JbmOptions? options = null)
 	{
 		var rom = DecodeToRomInternal(data, options);
 		return Encoding.UTF8.GetString(rom.Span);
 	}
-	public static T? DecodeObject<T>(ReadOnlyMemory<byte> data, JBMOptions? options = null)
+	public static T? DecodeObject<T>(ReadOnlyMemory<byte> data, JbmOptions? options = null)
 	{
 		var bytes = DecodeToBytes(data, options);
 		return JsonSerializer.Deserialize<T>(bytes);

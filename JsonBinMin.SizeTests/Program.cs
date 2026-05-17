@@ -68,19 +68,19 @@ if (true)
 	var file1 = File.ReadAllBytes(@"E:\maps\3918e\ExpertPlusStandard.dat");
 	var json = JsonSerializer.Deserialize<JsonNode>(file1);
 	Track("Deser");
-	var aos = AosConverter.Encode(json, JBMOptions.Default);
+	var aos = AosConverter.Encode(json, JbmOptions.Default);
 	Track("Encode");
 	var serText = aos.ToJsonString(opt);
 	File.WriteAllText("split.json", serText);
 	Track("Ser");
 	var tmpSer = JsonSerializer.Deserialize<AosData<JsonElement>>(serText)!;
 	Track("Deser");
-	var aosNodeRt = AosConverter.Decode(tmpSer, JBMOptions.Default);
+	var aosNodeRt = AosConverter.Decode(tmpSer, JbmOptions.Default);
 	Track("Decode");
 
 	var basic = JsonSerializer.SerializeToUtf8Bytes(json, opt);
 	Console.WriteLine("Basic           : {0}", basic.Length);
-	var basicJBM = JBMConverter.Encode(basic);
+	var basicJBM = JbmConverter.Encode(basic);
 	Console.WriteLine("Basic JBM       : {0}", basicJBM.Length);
 	var basicBrotli = CompressBrotli(basic);
 	Console.WriteLine("Basic Brotli    : {0}", basicBrotli.Length);
@@ -91,7 +91,7 @@ if (true)
 
 	var split = JsonSerializer.SerializeToUtf8Bytes(aos, opt);
 	Console.WriteLine("Split           : {0}", split.Length);
-	var splitJBM = JBMConverter.Encode(split);
+	var splitJBM = JbmConverter.Encode(split);
 	Console.WriteLine("Split JBM       : {0}", splitJBM.Length);
 	var splitBrotli = CompressBrotli(split);
 	Console.WriteLine("Split Brotli    : {0}", splitBrotli.Length);
@@ -136,18 +136,18 @@ Parallel.ForEach(Directory.EnumerateFiles(@"E:\maps", "ExpertPlusStandard.dat", 
 
 		var basic = JsonSerializer.SerializeToUtf8Bytes(json, opt);
 		Track("Basic");
-		var basicJBM = JBMConverter.Encode(basic, new JBMOptions() { UseDict = UseDict.Off, UseFloats = UseFloats.None });
+		var basicJBM = JbmConverter.Encode(basic, new JbmOptions() { UseDict = UseDict.Off, UseFloats = UseFloats.None });
 		Track("Basic JBM");
 		var basicBrotli = CompressBrotli(basic);
 		Track("Basic Brotli");
 		var basicJBMbrotli = CompressBrotli(basicJBM);
 		Track("Basic JBM Brotli");
 
-		var aos = AosConverter.Encode(json, JBMOptions.Default);
+		var aos = AosConverter.Encode(json, JbmOptions.Default);
 
 		var split = JsonSerializer.SerializeToUtf8Bytes(aos, opt);
 		Track("Split");
-		var splitJBM = JBMConverter.Encode(split, new JBMOptions() { UseDict = UseDict.Off, UseFloats = UseFloats.None });
+		var splitJBM = JbmConverter.Encode(split, new JbmOptions() { UseDict = UseDict.Off, UseFloats = UseFloats.None });
 		Track("Split JBM");
 		var splitBrotli = CompressBrotli(split);
 		Track("Split Brotli");
