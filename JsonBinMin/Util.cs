@@ -12,6 +12,7 @@ namespace JsonBinMin;
 
 internal static class Util
 {
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void Assert(bool assure)
 	{
 		if (!assure)

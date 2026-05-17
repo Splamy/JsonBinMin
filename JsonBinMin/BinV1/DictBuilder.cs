@@ -8,7 +8,6 @@ namespace JsonBinMin.BinV1;
 
 internal class DictBuilder(JbmOptions options)
 {
-	private readonly MemoryStream _mem = new();
 	private readonly Dictionary<string, DictEntry> _buildDictNum = [];
 	private readonly Dictionary<string, DictEntry> _buildDictStr = [];
 
@@ -63,18 +62,17 @@ internal class DictBuilder(JbmOptions options)
 		}
 
 		ref var de = ref CollectionsMarshal.GetValueRefOrAddDefault(_buildDictNum, num, out var exists);
-		
+
 		if (exists)
 		{
 			de.Count++;
 		}
 		else
 		{
-			_mem.SetLength(0);
-			JbmEncoder.WriteNumberValue(num, _mem, options);
-			de.Count = 1;
-			de.Index = byte.MaxValue;
-			de.Data = _mem.ToArray();
+			scoped var list = new ValueListBuilder<byte>(stackalloc byte[JbmEncoder.ScratchBufferSize]);
+			JbmEncoder.WriteNumberValue(num, ref list, options);
+			de = new DictEntry(list.AsSpan().ToArray()) { Count = 1, };
+			list.Dispose();
 		}
 	}
 
@@ -85,21 +83,17 @@ internal class DictBuilder(JbmOptions options)
 			return;
 		}
 
-		AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
-
-		
-		ref var de = ref CollectionsMarshal.GetValueRefOrAddDefault(_buildDictNum, str, out var exists);
+		ref var de = ref CollectionsMarshal.GetValueRefOrAddDefault(_buildDictStr, str, out var exists);
 		if (exists)
 		{
 			de.Count++;
 		}
 		else
 		{
-			_mem.SetLength(0);
-			JbmEncoder.WriteStringValue(str, _mem, options);
-			de.Count = 1;
-			de.Index = byte.MaxValue;
-			de.Data = _mem.ToArray();
+			scoped var list = new ValueListBuilder<byte>(stackalloc byte[JbmEncoder.ScratchBufferSize]);
+			JbmEncoder.WriteStringValue(str, ref list, options);
+			de = new DictEntry(list.AsSpan().ToArray()) { Count = 1, };
+			list.Dispose();
 		}
 	}
 
@@ -137,19 +131,20 @@ internal class DictBuilder(JbmOptions options)
 			return;
 		}
 
-		_mem.SetLength(0);
-		_mem.WriteByte((byte)JBMType.MetaDictDef);
+		scoped var list = new ValueListBuilder<byte>(1024);
+		list.Append((byte)JbmType.MetaDictDef);
 		Trace.Assert(dictValues.Length <= 0x7f);
-		JbmEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), _mem, options);
+		JbmEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), ref list, options);
 
 		for (var i = 0; i < dictValues.Length; i++)
 		{
 			ref var entry = ref dictValues[i];
 			entry.Index = (byte)i;
-			_mem.Write(entry.Data);
+			list.Append(entry.Data);
 		}
 
-		DictSerialized = _mem.ToArray();
+		DictSerialized = list.AsSpan().ToArray();
+		list.Dispose();
 	}
 
 	[Conditional("DEBUG")]
@@ -181,11 +176,10 @@ internal class DictBuilder(JbmOptions options)
 }
 
 [DebuggerDisplay("{Count, nq} @{Index, nq}")]
-[StructLayout(LayoutKind.Auto)]
-internal struct DictEntry
+internal class DictEntry(byte[] data)
 {
-	public byte[] Data;
-	public int Count;
-	public byte Index;
+	public byte[] Data { get; } = data;
+	public int Count { get; set; } = 0;
+	public byte Index { get; set; } = byte.MaxValue;
 	public bool IsIndexed => Index != byte.MaxValue;
 }

@@ -217,13 +217,14 @@ internal partial class JbmDecoder(JbmOptions options)
 			}
 		}
 
-		switch ((JBMType)(pick & 0b1_111_11_0_0))
+		switch ((JbmType)(pick & 0b1_111_11_0_0))
 		{
-		case JBMType.Float16:
+		case JbmType.Float16:
 			{
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
 				var val = BitConverter.ToHalf(data[1..]);
-				Util.Assert(val.TryFormat(buf, out var written, "G5", CultureInfo.InvariantCulture));
+				Util.Assert(val.TryFormat(buf, out var written,
+					JbmEncoder.RoundtripHalfFormat, CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0)
@@ -234,11 +235,12 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[3..];
 				return;
 			}
-		case JBMType.Float32:
+		case JbmType.Float32:
 			{
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
 				var val = BitConverter.ToSingle(data[1..]);
-				Util.Assert(val.TryFormat(buf, out var written, "G9", CultureInfo.InvariantCulture));
+				Util.Assert(val.TryFormat(buf, out var written, 
+					JbmEncoder.RoundtripFloatFormat, CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0)
@@ -249,11 +251,12 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[5..];
 				return;
 			}
-		case JBMType.Float64:
+		case JbmType.Float64:
 			{
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatDoubleLength];
 				var val = BitConverter.ToDouble(data[1..]);
-				Util.Assert(val.TryFormat(buf, out var written, "G17", CultureInfo.InvariantCulture));
+				Util.Assert(val.TryFormat(buf, out var written, 
+					JbmEncoder.RoundtripDoubleFormat, CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
 				if (tail0)
@@ -273,9 +276,9 @@ internal partial class JbmDecoder(JbmOptions options)
 	{
 		var pick = data[0];
 
-		switch ((JBMType)(pick & 0b1_111_111_0))
+		switch ((JbmType)(pick & 0b1_111_111_0))
 		{
-		case JBMType.Int8:
+		case JbmType.Int8:
 			{
 				WriteSignByFlag(output, pick);
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
@@ -285,7 +288,7 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[2..];
 				return;
 			}
-		case JBMType.Int16:
+		case JbmType.Int16:
 			{
 				WriteSignByFlag(output, pick);
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
@@ -295,7 +298,7 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[3..];
 				return;
 			}
-		case JBMType.Int24:
+		case JbmType.Int24:
 			{
 				WriteSignByFlag(output, pick);
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
@@ -307,7 +310,7 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[4..];
 				return;
 			}
-		case JBMType.Int32:
+		case JbmType.Int32:
 			{
 				WriteSignByFlag(output, pick);
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
@@ -317,7 +320,7 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[5..];
 				return;
 			}
-		case JBMType.Int48:
+		case JbmType.Int48:
 			{
 				WriteSignByFlag(output, pick);
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatUInt64Length];
@@ -329,7 +332,7 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[7..];
 				return;
 			}
-		case JBMType.Int64:
+		case JbmType.Int64:
 			{
 				WriteSignByFlag(output, pick);
 				var val = (BigInteger)BinaryPrimitives.ReadUInt64LittleEndian(data[1..]);
@@ -339,7 +342,7 @@ internal partial class JbmDecoder(JbmOptions options)
 				rest = data[9..];
 				return;
 			}
-		case JBMType.IntRle:
+		case JbmType.IntRle:
 			{
 				WriteSignByFlag(output, pick);
 				var byteLen = (int)ReadRleNum(data, out data);
@@ -390,17 +393,17 @@ internal partial class JbmDecoder(JbmOptions options)
 			return num;
 		}
 
-		if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
+		if ((JbmType)(pick & 0b1_11_00000) == 0) // IntInline
 		{
 			rest = data[1..];
 			return (uint)(data[0] & 0x1F);
 		}
 
-		switch ((JBMType)(pick & 0b1_111_0000))
+		switch ((JbmType)(pick & 0b1_111_0000))
 		{
-		case JBMType.Object:
-		case JBMType.Array:
-		case JBMType.String:
+		case JbmType.Object:
+		case JbmType.Array:
+		case JbmType.String:
 			var hVal = (uint)(data[0] & 0xF);
 			if (hVal < 0xF)
 			{
@@ -416,21 +419,21 @@ internal partial class JbmDecoder(JbmOptions options)
 			throw new Exception("Can't read float value as integer");
 		}
 
-		switch ((JBMType)(pick & 0b1_111_111_0))
+		switch ((JbmType)(pick & 0b1_111_111_0))
 		{
-		case JBMType.Int8:
+		case JbmType.Int8:
 			{
 				CheckNotPositive(pick);
 				rest = data[2..];
 				return data[1] + Constants.JbmInt8Offset;
 			}
-		case JBMType.Int16:
+		case JbmType.Int16:
 			{
 				CheckNotPositive(pick);
 				rest = data[3..];
 				return BinaryPrimitives.ReadUInt16LittleEndian(data[1..]) + Constants.JbmInt16Offset;
 			}
-		case JBMType.Int24:
+		case JbmType.Int24:
 			{
 				CheckNotPositive(pick);
 				rest = data[4..];
@@ -439,15 +442,15 @@ internal partial class JbmDecoder(JbmOptions options)
 				var val = valHigh << 16 | valLow;
 				return val + Constants.JbmInt24Offset;
 			}
-		case JBMType.Int32:
+		case JbmType.Int32:
 			{
 				CheckNotPositive(pick);
 				rest = data[5..];
 				return BinaryPrimitives.ReadUInt32LittleEndian(data[1..]) + Constants.JbmInt32Offset;
 			}
-		case JBMType.Int48:
-		case JBMType.Int64:
-		case JBMType.IntRle:
+		case JbmType.Int48:
+		case JbmType.Int64:
+		case JbmType.IntRle:
 			throw new Exception($"Datatype is too big for int");
 		}
 

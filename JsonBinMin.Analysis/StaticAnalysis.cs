@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using JsonBinMin.BinV1;
@@ -7,21 +8,19 @@ namespace JsonBinMin.Analysis;
 
 internal class StaticAnalysis
 {
-	private static readonly JBMType[] TypeMap;
+	private static readonly JbmType[] TypeMap;
 
 	private static readonly JbmOptions jbmOptions = new()
 	{
-		Compress = false,
-		UseDict = UseDict.Off,
-		UseFloats = UseFloats.All,
+		Compress = false, UseDict = UseDict.Off, UseFloats = UseFloats.All,
 	};
 
 	static StaticAnalysis()
 	{
-		TypeMap = new JBMType[256];
+		TypeMap = new JbmType[256];
 		for (int i = 0; i < 256; i++)
 		{
-			TypeMap[i] = GetNumberType([(byte)i]);
+			TypeMap[i] = GetNumberType((byte)i);
 		}
 	}
 
@@ -32,7 +31,8 @@ internal class StaticAnalysis
 
 		foreach (var result in results)
 		{
-			strb.AppendFormat(CultureInfo.InvariantCulture, "[{0} - {1}]: {2}\n", As(result.Start), As(result.End), AnalysisReport.FType(result.Type));
+			strb.AppendFormat(CultureInfo.InvariantCulture, "[{0} - {1}]: {2}\n", As(result.Start), As(result.End),
+				AnalysisReport.FType(result.Type));
 		}
 
 		var summary = strb.ToString();
@@ -47,10 +47,7 @@ internal class StaticAnalysis
 
 		Parallel.ForEach(
 			splits,
-			new ParallelOptions()
-			{
-				MaxDegreeOfParallelism = splits.Length
-			},
+			new ParallelOptions() { MaxDegreeOfParallelism = splits.Length },
 			range => {
 				var result = AnalyzeRange(range.Item1, range.Item2);
 				lock (results)
@@ -101,23 +98,30 @@ internal class StaticAnalysis
 	public static List<SliceResult> AnalyzeRange(long from, long to)
 	{
 		var result = new List<SliceResult>();
-		var mem = new MemoryStream(new byte[128], 0, 128, true, true);
+		Span<byte> scratchBuf = stackalloc byte[128];
 
-		JbmEncoder.WriteNumberValue(from.ToString(CultureInfo.InvariantCulture), mem, jbmOptions);
-		JBMType bucketType = TypeMap[mem.GetBuffer()[0]];
+		static JbmType GetBucketType<T>(T num, Span<byte> scratchBuf) where T : INumber<T>
+		{
+			var list = new ValueListBuilder<byte>(scratchBuf);
+			JbmEncoder.WriteNumberValue(num.ToString(null, CultureInfo.InvariantCulture), ref list, jbmOptions);
+			var type = TypeMap[list[0]];
+			list.Dispose();
+			return type;
+		}
+
+		var bucketType = GetBucketType(from, scratchBuf);
 
 		long bucketStart = from;
 
 		for (long i = from; i < to; i++)
 		{
-			mem.SetLength(0);
 			var f = As(i);
 			if (!float.IsRealNumber(f) || !float.IsFinite(f))
 			{
 				continue;
 			}
-			JbmEncoder.WriteNumberValue(f.ToString(CultureInfo.InvariantCulture), mem, jbmOptions);
-			var type = TypeMap[mem.GetBuffer()[0]];
+
+			var type = GetBucketType(f, scratchBuf);
 
 			if (bucketType != type)
 			{
@@ -131,38 +135,36 @@ internal class StaticAnalysis
 		return result;
 	}
 
-	public static JBMType GetNumberType(ReadOnlySpan<byte> data)
+	public static JbmType GetNumberType(byte pick)
 	{
-		var pick = data[0];
-
-		if ((JBMType)(pick & 0b1_11_00000) == 0) // IntInline
+		if ((JbmType)(pick & 0b1_11_00000) == 0) // IntInline
 		{
-			return JBMType.IntInline;
+			return JbmType.IntInline;
 		}
 
-		switch ((JBMType)(pick & 0b1_111_0000))
+		switch ((JbmType)(pick & 0b1_111_0000))
 		{
-		case JBMType.NumStr:
-			return JBMType.NumStr;
+			case JbmType.NumStr:
+				return JbmType.NumStr;
 		}
 
 		if ((pick & 0b1_111_00_0_0) == 0b0_101_00_0_0 && (pick & 0b0_000_11_0_0) != 0)
 		{
-			return (JBMType)(pick & 0b1_111_11_0_0);
+			return (JbmType)(pick & 0b1_111_11_0_0);
 		}
 
-		return (JBMType)(pick & 0b1_111_111_0) switch
+		return (JbmType)(pick & 0b1_111_111_0) switch
 		{
-			JBMType.Int8 => JBMType.Int8,
-			JBMType.Int16 => JBMType.Int16,
-			JBMType.Int24 => JBMType.Int24,
-			JBMType.Int32 => JBMType.Int32,
-			JBMType.Int48 => JBMType.Int48,
-			JBMType.Int64 => JBMType.Int64,
-			JBMType.IntRle => JBMType.IntRle,
-			_ => (JBMType)255,
+			JbmType.Int8 => JbmType.Int8,
+			JbmType.Int16 => JbmType.Int16,
+			JbmType.Int24 => JbmType.Int24,
+			JbmType.Int32 => JbmType.Int32,
+			JbmType.Int48 => JbmType.Int48,
+			JbmType.Int64 => JbmType.Int64,
+			JbmType.IntRle => JbmType.IntRle,
+			_ => (JbmType)255,
 		};
 	}
 }
 
-internal record SliceResult(long Start, long End, JBMType Type);
+internal record SliceResult(long Start, long End, JbmType Type);

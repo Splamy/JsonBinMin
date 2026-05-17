@@ -10,28 +10,28 @@ internal class AnalysisReport
 	public int TotalTokenCount { get; set; }
 	public int DictTokenCount { get; set; }
 	public int DictElementsCount { get; set; }
-	private Dictionary<JBMType, int> TypeCounts { get; } = [];
+	private Dictionary<JbmType, int> TypeCounts { get; } = [];
 	// Bytelength -> Count
-	private Dictionary<(JBMType NumType, int Length), int> IntegerCounts { get; } = [];
+	private Dictionary<(JbmType NumType, int Length), int> IntegerCounts { get; } = [];
 
 	public AnalysisReport()
 	{
-		TypeCounts[JBMType.Object] = 0;
-		TypeCounts[JBMType.Array] = 0;
-		TypeCounts[JBMType.String] = 0;
+		TypeCounts[JbmType.Object] = 0;
+		TypeCounts[JbmType.Array] = 0;
+		TypeCounts[JbmType.String] = 0;
 
-		IntegerCounts[(JBMType.Object, 1)] = 0;
-		IntegerCounts[(JBMType.Array, 1)] = 0;
-		IntegerCounts[(JBMType.String, 1)] = 0;
+		IntegerCounts[(JbmType.Object, 1)] = 0;
+		IntegerCounts[(JbmType.Array, 1)] = 0;
+		IntegerCounts[(JbmType.String, 1)] = 0;
 	}
 
-	public void TrackType(JBMType type)
+	public void TrackType(JbmType type)
 	{
 		ref var cnt = ref CollectionsMarshal.GetValueRefOrAddDefault(TypeCounts, type, out _);
 		cnt++;
 	}
 
-	public void TrackInteger(JBMType numType, int length)
+	public void TrackInteger(JbmType numType, int length)
 	{
 		ref var cnt = ref CollectionsMarshal.GetValueRefOrAddDefault(IntegerCounts, (numType, length), out _);
 		cnt++;
@@ -57,9 +57,9 @@ internal class AnalysisReport
 				.Select(kvp => $"\t{FType(kvp.Key.NumType)}[{kvp.Key.Length}]: {kvp.Value}")
 				.Join("\n"));
 
-		AddInlineRatio("Object", IntegerCounts[(JBMType.Object, 1)], TypeCounts[JBMType.Object]);
-		AddInlineRatio("Array", IntegerCounts[(JBMType.Array, 1)], TypeCounts[JBMType.Array]);
-		AddInlineRatio("String", IntegerCounts[(JBMType.String, 1)], TypeCounts[JBMType.String]);
+		AddInlineRatio("Object", IntegerCounts[(JbmType.Object, 1)], TypeCounts[JbmType.Object]);
+		AddInlineRatio("Array", IntegerCounts[(JbmType.Array, 1)], TypeCounts[JbmType.Array]);
+		AddInlineRatio("String", IntegerCounts[(JbmType.String, 1)], TypeCounts[JbmType.String]);
 
 		void AddInlineRatio(string name, int inlined, int total)
 		{
@@ -75,33 +75,33 @@ internal class AnalysisReport
 		}
 	}
 
-	public static string FType(JBMType type) => type switch
+	public static string FType(JbmType type) => type switch
 	{
-		JBMType.IntInline => "IntInline",
+		JbmType.IntInline => "IntInline",
 
 
-		JBMType.Object => "Object",
-		JBMType.Array => "Array",
-		JBMType.String => "String",
+		JbmType.Object => "Object",
+		JbmType.Array => "Array",
+		JbmType.String => "String",
 
-		JBMType.MetaDictDef => "MetaDictDef",
-		JBMType.False => "False",
-		JBMType.True => "True",
-		JBMType.Null => "Null",
+		JbmType.MetaDictDef => "MetaDictDef",
+		JbmType.False => "False",
+		JbmType.True => "True",
+		JbmType.Null => "Null",
 
-		JBMType.Float16 => "Float16",
-		JBMType.Float32 => "Float32",
-		JBMType.Float64 => "Float64",
+		JbmType.Float16 => "Float16",
+		JbmType.Float32 => "Float32",
+		JbmType.Float64 => "Float64",
 
-		JBMType.Int8 => "Int8",
-		JBMType.Int16 => "Int16",
-		JBMType.Int24 => "Int24",
-		JBMType.Int32 => "Int32",
-		JBMType.Int48 => "Int48",
-		JBMType.Int64 => "Int64",
-		JBMType.IntRle => "IntRle",
+		JbmType.Int8 => "Int8",
+		JbmType.Int16 => "Int16",
+		JbmType.Int24 => "Int24",
+		JbmType.Int32 => "Int32",
+		JbmType.Int48 => "Int48",
+		JbmType.Int64 => "Int64",
+		JbmType.IntRle => "IntRle",
 
-		JBMType.NumStr => "NumStr",
+		JbmType.NumStr => "NumStr",
 
 		_ => type.ToString(),
 	};

@@ -4,6 +4,11 @@ using JsonBinMin.Analysis;
 
 Console.WriteLine("Analyzing!");
 
+var max = MaxFloatSize.GetMaxFloatSize();
+Console.WriteLine("Max float size: {0}", max);
+
+return;
+
 foreach (var file in Directory.GetFiles("Assets", "*.json"))
 {
 	var data = File.ReadAllBytes(file);

@@ -1,6 +1,6 @@
-﻿namespace JsonBinMin;
+﻿namespace JsonBinMin.BinV1;
 
-internal enum JBMType : byte
+internal enum JbmType : byte
 {
 #pragma warning disable
 	//             [D TT XXXXX]
