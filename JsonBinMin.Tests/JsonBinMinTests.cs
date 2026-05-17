@@ -20,18 +20,17 @@ public class JsonBinMinTests
 		{
 			yield return ["big_01.json", 3523431, 2497025, 776777, useDict];
 			yield return ["big_02.json", 29626076, 18996422, 8118076, useDict];
-			yield return ["nums_01.json", 655, 420, 420, useDict];
+			yield return ["nums_01.json", 655, 422, 422, useDict];
 			yield return ["nums_02.json", 9272, 6155, 6155, useDict];
-			yield return ["nums_03.json", 16212, 10946, 10811, useDict];
+			yield return ["nums_03.json", 16212, 11554, 11433, useDict];
 			yield return ["opts_01.json", 313, 230, 230, useDict];
 			yield return ["simple_01.json", 360, 308, 299, useDict];
 			yield return ["simple_02.json", 183, 140, 115, useDict];
 			yield return ["simple_03.json", 389, 312, 280, useDict];
 			yield return ["simple_04.json", 2710, 2473, 2282, useDict];
 
-
-			yield return ["test.unicode.json", 15486, 12860, 8327, useDict];
-			yield return ["unicode.json", 2186, 1592, 1208, useDict];
+			yield return ["test.unicode.json", 15486, 12921, 8374, useDict];
+			yield return ["unicode.json", 2186, 1608, 1213, useDict];
 		}
 	}
 
