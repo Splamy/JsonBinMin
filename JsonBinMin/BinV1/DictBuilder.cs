@@ -8,6 +8,8 @@ namespace JsonBinMin.BinV1;
 
 internal class DictBuilder(JbmOptions options)
 {
+	private const int MaxDictEntries = 0x7F;
+	
 	private readonly Dictionary<string, DictEntry> _buildDictNum = [];
 	private readonly Dictionary<string, DictEntry> _buildDictStr = [];
 
@@ -120,7 +122,7 @@ internal class DictBuilder(JbmOptions options)
 			.Concat(_buildDictStr.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.String)))
 			.Where(x => x.Entry.Count * x.Entry.Data.Length > x.Entry.Count + x.Entry.Data.Length)
 			.OrderByDescending(x => x.Entry.Count * x.Entry.Data.Length)
-			.Take(0x7F)
+			.Take(MaxDictEntries)
 			.OrderBy(x => x.Kind)
 			.Select(x => x.Entry)
 			.ToArray();
@@ -133,7 +135,7 @@ internal class DictBuilder(JbmOptions options)
 
 		scoped var list = new ValueListBuilder<byte>(1024);
 		list.Append((byte)JbmType.MetaDictDef);
-		Trace.Assert(dictValues.Length <= 0x7f);
+		Trace.Assert(dictValues.Length <= MaxDictEntries);
 		JbmEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), ref list, options);
 
 		for (var i = 0; i < dictValues.Length; i++)
