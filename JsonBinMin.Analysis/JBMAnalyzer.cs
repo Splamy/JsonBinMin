@@ -1,15 +1,15 @@
 ﻿using JsonBinMin.BinV1;
-using static JsonBinMin.JBMDecoder;
+using static JsonBinMin.BinV1.JbmDecoder;
 
 namespace JsonBinMin.Analysis;
 
-internal class JBMAnalyzer
+internal class JbmAnalyzer
 {
-	private readonly JBMDecoder decoder = new();
+	private readonly JbmDecoder decoder = new();
 
 	public static AnalysisReport Analyze(ReadOnlySpan<byte> data)
 	{
-		var analyzer = new JBMAnalyzer();
+		var analyzer = new JbmAnalyzer();
 		var report = new AnalysisReport();
 		while (analyzer.Analyze(report, data, out data)) ;
 		return report;

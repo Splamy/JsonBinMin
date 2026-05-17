@@ -18,8 +18,8 @@ public class Program
 		for (int i = 0; i < 20; i++)
 		{
 			sw.Restart();
-			var comp = JBMConverter.Encode(data);
-			var round = JBMConverter.DecodeToString(comp);
+			var comp = JbmConverter.Encode(data);
+			var round = JbmConverter.DecodeToString(comp);
 			Console.Write(round[0..1]);
 			Console.WriteLine("{0:00} in {1}", i, sw.Elapsed.TotalSeconds);
 		}

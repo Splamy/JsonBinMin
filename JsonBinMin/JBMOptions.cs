@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace JsonBinMin;
 
-public class JBMOptions
+public class JbmOptions
 {
 	private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
 	{
@@ -15,7 +15,7 @@ public class JBMOptions
 		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
 	};
 
-	public static readonly JBMOptions Default = new();
+	public static readonly JbmOptions Default = new();
 
 	public bool UseJbm { get; init; } = false;
 	public UseDict UseDict { get; init; } = UseDict.Simple;

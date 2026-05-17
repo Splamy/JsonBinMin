@@ -3,18 +3,19 @@ using System.Buffers.Text;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
-using JsonBinMin.BinV1;
 
-namespace JsonBinMin;
+namespace JsonBinMin.BinV1;
 
-internal partial class JBMDecoder
+internal partial class JbmDecoder(JbmOptions options)
 {
-	public JBMOptions Options { get; } = JBMOptions.Default;
 	public MemoryStream Output { get; set; } = new();
 	public byte[][] Dict { get; set; } = [];
-	private readonly MemoryStream mem = new();
+
+	public JbmDecoder(): this(JbmOptions.Default)
+	{
+		
+	}
 
 	public bool Parse(ReadOnlySpan<byte> data, out ReadOnlySpan<byte> rest)
 	{
@@ -40,7 +41,10 @@ internal partial class JBMDecoder
 				Parse(data, out data);
 				Output.WriteByte((byte)':');
 				Parse(data, out data);
-				if (i < objElemCount - 1) Output.WriteByte((byte)',');
+				if (i < objElemCount - 1)
+				{
+					Output.WriteByte((byte)',');
+				}
 			}
 			Output.WriteByte((byte)'}');
 			rest = data;
@@ -52,7 +56,10 @@ internal partial class JBMDecoder
 			for (int i = 0; i < arrElemCount; i++)
 			{
 				Parse(data, out data);
-				if (i < arrElemCount - 1) Output.WriteByte((byte)',');
+				if (i < arrElemCount - 1)
+				{
+					Output.WriteByte((byte)',');
+				}
 			}
 			Output.WriteByte((byte)']');
 			rest = data;
@@ -93,7 +100,7 @@ internal partial class JBMDecoder
 		case DecodePoint.MetaDictDef:
 			var dictSize = ReadNumberToInt(data[1..], out data);
 			Dict = new byte[dictSize][];
-			var dictCtx = new JBMDecoder
+			var dictCtx = new JbmDecoder(options)
 			{
 				Dict = Dict // allow in-self referential dict entries
 			};
@@ -133,24 +140,44 @@ internal partial class JBMDecoder
 		var tail0 = (pick & 0b0000_0010) != 0;
 		var lead0 = (pick & 0b0000_0100) != 0;
 
-		if (isNeg) output.WriteByte((byte)'-');
+		if (isNeg)
+		{
+			output.WriteByte((byte)'-');
+		}
+
 		if (lead0 && tail0)
 		{
 			output.Write(Constants.Float0);
 			rest = data[1..];
 			return;
 		}
-		if (lead0) output.Write(Constants.Leading0);
+		if (lead0)
+		{
+			output.Write(Constants.Leading0);
+		}
 
 		int nsOff = 1;
 		while (true)
 		{
 			var b = data[nsOff++];
 
-			if (Get((byte)(b >> 4)) is { } bFirst) output.WriteByte(bFirst);
-			else break;
-			if (Get((byte)(b & 0xF)) is { } bSecond) output.WriteByte(bSecond);
-			else break;
+			if (Get((byte)(b >> 4)) is { } bFirst)
+			{
+				output.WriteByte(bFirst);
+			}
+			else
+			{
+				break;
+			}
+
+			if (Get((byte)(b & 0xF)) is { } bSecond)
+			{
+				output.WriteByte(bSecond);
+			}
+			else
+			{
+				break;
+			}
 
 			static byte? Get(byte val) => val switch
 			{
@@ -165,7 +192,10 @@ internal partial class JBMDecoder
 			};
 		}
 
-		if (tail0) output.Write(Constants.Tailing0);
+		if (tail0)
+		{
+			output.Write(Constants.Tailing0);
+		}
 
 		rest = data[nsOff..];
 	}
@@ -181,7 +211,9 @@ internal partial class JBMDecoder
 			for (int i = 0; i < span.Length; i++)
 			{
 				if (span[i] == 'e' || span[i] == 'E')
+				{
 					span[i] = (byte)e;
+				}
 			}
 		}
 
@@ -191,10 +223,14 @@ internal partial class JBMDecoder
 			{
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
 				var val = BitConverter.ToHalf(data[1..]);
-				var written = Encoding.UTF8.GetBytes(val.ToString(CultureInfo.InvariantCulture), buf);
+				Util.Assert(val.TryFormat(buf, out var written, "G5", CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
-				if (tail0) output.Write(Constants.Tailing0);
+				if (tail0)
+				{
+					output.Write(Constants.Tailing0);
+				}
+
 				rest = data[3..];
 				return;
 			}
@@ -202,10 +238,14 @@ internal partial class JBMDecoder
 			{
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatSingleLength];
 				var val = BitConverter.ToSingle(data[1..]);
-				Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+				Util.Assert(val.TryFormat(buf, out var written, "G9", CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
-				if (tail0) output.Write(Constants.Tailing0);
+				if (tail0)
+				{
+					output.Write(Constants.Tailing0);
+				}
+
 				rest = data[5..];
 				return;
 			}
@@ -213,10 +253,14 @@ internal partial class JBMDecoder
 			{
 				Span<byte> buf = stackalloc byte[Constants.MaximumFormatDoubleLength];
 				var val = BitConverter.ToDouble(data[1..]);
-				Util.Assert(Utf8Formatter.TryFormat(val, buf, out var written));
+				Util.Assert(val.TryFormat(buf, out var written, "G17", CultureInfo.InvariantCulture));
 				SetE(buf[..written], upperE ? 'E' : 'e');
 				output.Write(buf[..written]);
-				if (tail0) output.Write(Constants.Tailing0);
+				if (tail0)
+				{
+					output.Write(Constants.Tailing0);
+				}
+
 				rest = data[9..];
 				return;
 			}
@@ -314,7 +358,9 @@ internal partial class JBMDecoder
 		static void WriteSignByFlag(Stream output, byte i)
 		{
 			if ((i & 1) != 0)
+			{
 				output.WriteByte((byte)'-');
+			}
 		}
 	}
 
@@ -409,7 +455,9 @@ internal partial class JBMDecoder
 		static void CheckNotPositive(byte i)
 		{
 			if ((i & 1) != 0)
+			{
 				throw new Exception("Can't read negative value as length");
+			}
 		}
 
 		throw new InvalidDataException();
@@ -420,7 +468,7 @@ internal partial class JBMDecoder
 	{
 		var strLen = (int)ReadNumberToInt(data, out data);
 		output.WriteByte((byte)'"');
-		output.Write(JsonEncodedText.Encode(data[..strLen], Options.JsonSerializerOptions.Encoder).EncodedUtf8Bytes);
+		output.Write(JsonEncodedText.Encode(data[..strLen], options.JsonSerializerOptions.Encoder).EncodedUtf8Bytes);
 		output.WriteByte((byte)'"');
 		rest = data[strLen..];
 	}

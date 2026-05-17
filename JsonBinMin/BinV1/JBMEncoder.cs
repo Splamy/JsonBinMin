@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+﻿using System.Buffers;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -9,83 +10,88 @@ using System.Text.Json;
 
 namespace JsonBinMin.BinV1;
 
-internal class JBMEncoder
+internal class JbmEncoder
 {
 	private static readonly Encoding Utf8Encoder = new UTF8Encoding(false, true);
-	public readonly JBMOptions options;
-	public readonly MemoryStream output = new();
-	public readonly DictBuilder dict;
+	private readonly JbmOptions _options;
+	private readonly DictBuilder _dict;
+	public MemoryStream Output { get; } = new();
 
-	public JBMEncoder(JBMOptions options, DictBuilder dictBuilder)
+	public JbmEncoder(JbmOptions options, DictBuilder dictBuilder)
 	{
-		this.options = options;
+		_options = options;
 		dictBuilder.FinalizeDictionary();
-		dict = dictBuilder;
-		output.Write(dictBuilder.DictSerialized);
+		_dict = dictBuilder;
+		Output.Write(dictBuilder.DictSerialized);
 	}
 
 	public void WriteValue(JsonElement elem)
 	{
 		switch (elem.ValueKind)
 		{
-		case JsonValueKind.Undefined:
-			throw new InvalidOperationException();
+			case JsonValueKind.Undefined:
+				throw new InvalidOperationException();
 
-		case JsonValueKind.Object:
-			var objElemems = elem.EnumerateObject().ToArray();
+			case JsonValueKind.Object:
+				var objElements = elem.EnumerateObject().ToArray();
 
-			if (objElemems.Length <= Constants.SqueezedInlineMaxValue)
-				output.WriteByte((byte)((byte)JBMType.Object | objElemems.Length));
-			else
-			{
-				output.WriteByte((byte)JBMType.ObjectExt);
-				WriteNumberValue(objElemems.Length.ToString(CultureInfo.InvariantCulture));
-			}
+				if (objElements.Length <= Constants.SqueezedInlineMaxValue)
+				{
+					Output.WriteByte((byte)((byte)JBMType.Object | objElements.Length));
+				}
+				else
+				{
+					Output.WriteByte((byte)JBMType.ObjectExt);
+					WriteNumberValue(objElements.Length.ToString(CultureInfo.InvariantCulture));
+				}
 
-			foreach (var kvp in objElemems)
-			{
-				WriteStringValue(kvp.Name);
-				WriteValue(kvp.Value);
-			}
-			break;
+				foreach (var kvp in objElements)
+				{
+					WriteStringValue(kvp.Name);
+					WriteValue(kvp.Value);
+				}
 
-		case JsonValueKind.Array:
-			var arrElemems = elem.EnumerateArray().ToArray();
+				break;
 
-			if (arrElemems.Length <= Constants.SqueezedInlineMaxValue)
-				output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
-			else
-			{
-				output.WriteByte((byte)JBMType.ArrayExt);
-				WriteNumberValue(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
-			}
+			case JsonValueKind.Array:
+				var arrElemems = elem.EnumerateArray().ToArray();
 
-			foreach (var arrItem in arrElemems)
-				WriteValue(arrItem);
-			break;
+				if (arrElemems.Length <= Constants.SqueezedInlineMaxValue)
+				{
+					Output.WriteByte((byte)((byte)JBMType.Array | arrElemems.Length));
+				}
+				else
+				{
+					Output.WriteByte((byte)JBMType.ArrayExt);
+					WriteNumberValue(arrElemems.Length.ToString(CultureInfo.InvariantCulture));
+				}
 
-		case JsonValueKind.String:
-			WriteStringValue(elem.GetString());
-			break;
+				foreach (var arrItem in arrElemems)
+					WriteValue(arrItem);
+				break;
 
-		case JsonValueKind.Number:
-			WriteNumberValue(elem.GetRawText());
-			break;
+			case JsonValueKind.String:
+				WriteStringValue(elem.GetString());
+				break;
 
-		case JsonValueKind.True:
-			output.WriteByte((byte)JBMType.True);
-			break;
+			case JsonValueKind.Number:
+				WriteNumberValue(elem.GetRawText());
+				break;
 
-		case JsonValueKind.False:
-			output.WriteByte((byte)JBMType.False);
-			break;
+			case JsonValueKind.True:
+				Output.WriteByte((byte)JBMType.True);
+				break;
 
-		case JsonValueKind.Null:
-			WriteNull();
-			break;
+			case JsonValueKind.False:
+				Output.WriteByte((byte)JBMType.False);
+				break;
 
-		default:
-			throw new InvalidOperationException();
+			case JsonValueKind.Null:
+				WriteNull();
+				break;
+
+			default:
+				throw new InvalidOperationException();
 		}
 	}
 
@@ -98,17 +104,21 @@ internal class JBMEncoder
 		}
 
 		if (TryWriteStringFromDict(str))
+		{
 			return;
+		}
 
-		WriteStringValue(str, output, options);
+		WriteStringValue(str, Output, _options);
 	}
 
-	public static void WriteStringValue(string str, Stream output, JBMOptions options)
+	public static void WriteStringValue(string str, Stream output, JbmOptions options)
 	{
 		var bytes = Utf8Encoder.GetBytes(str);
 
 		if (bytes.Length <= Constants.SqueezedInlineMaxValue)
+		{
 			output.WriteByte((byte)((byte)JBMType.String | bytes.Length));
+		}
 		else
 		{
 			output.WriteByte((byte)JBMType.StringExt);
@@ -120,24 +130,37 @@ internal class JBMEncoder
 
 	public bool TryWriteStringFromDict(string str)
 	{
-		if (options.UseDict == UseDict.Off || !dict.TryGetString(str, out var entry))
+		if (_options.UseDict == UseDict.Off || !_dict.TryGetString(str, out var entry))
+		{
 			return false;
+		}
+
 		if (entry.IsIndexed)
-			output.WriteByte((byte)(0x80 | entry.Index));
+		{
+			Output.WriteByte((byte)(0x80 | entry.Index));
+		}
 		else
-			output.Write(entry.Data);
+		{
+			Output.Write(entry.Data);
+		}
+
 		return true;
 	}
 
 	public void WriteNumberValue(string num)
 	{
 		if (TryWriteNumberFromDict(num))
+		{
 			return;
+		}
 
-		WriteNumberValue(num, output, options);
+		WriteNumberValue(num, Output, _options);
 	}
 
-	public static void WriteNumberValue(string numRaw, Stream output, JBMOptions options)
+	private static readonly SearchValues<char> Dot = SearchValues.Create(['.']);
+	private static readonly SearchValues<char> UppercaseE = SearchValues.Create(['E']);
+	
+	public static void WriteNumberValue(string numRaw, Stream output, JbmOptions options)
 	{
 		var num = numRaw.AsSpan();
 
@@ -149,13 +172,16 @@ internal class JBMEncoder
 		var numStr = GetNumStr(num);
 		var numStrLen = numStr.Length;
 
-		var upperE = num.Contains("E", StringComparison.Ordinal);
+		var upperE = num.ContainsAny(UppercaseE);
 		var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
-		if (tail0) num = num[..^2];
+		if (tail0)
+		{
+			num = num[..^2];
+		}
 
 		if (numStrLen >= 3
-			&& options.UseFloats.HasFlag(UseFloats.Half)
-			&& TryGetRoundtripSaveFloat(num, out Half halfVal))
+		    && options.UseFloats.HasFlag(UseFloats.Half)
+		    && TryGetRoundtripSaveFloat(num, "G5", out Half halfVal))
 		{
 			Span<byte> buf = stackalloc byte[3];
 			buf[0] = GetWithFloatFlags(JBMType.Float16, tail0, upperE);
@@ -165,8 +191,8 @@ internal class JBMEncoder
 		}
 
 		if (numStrLen >= 5
-			&& options.UseFloats.HasFlag(UseFloats.Single)
-			&& TryGetRoundtripSaveFloat(num, out float floatVal))
+		    && options.UseFloats.HasFlag(UseFloats.Single)
+		    && TryGetRoundtripSaveFloat(num, "G9", out float floatVal))
 		{
 			Span<byte> buf = stackalloc byte[5];
 			buf[0] = GetWithFloatFlags(JBMType.Float32, tail0, upperE);
@@ -176,8 +202,8 @@ internal class JBMEncoder
 		}
 
 		if (numStrLen >= 9
-			&& options.UseFloats.HasFlag(UseFloats.Double)
-			&& TryGetRoundtripSaveFloat(num, out double doubleVal))
+		    && options.UseFloats.HasFlag(UseFloats.Double)
+		    && TryGetRoundtripSaveFloat(num, "G17", out double doubleVal))
 		{
 			Span<byte> buf = stackalloc byte[9];
 			buf[0] = GetWithFloatFlags(JBMType.Float64, tail0, upperE);
@@ -185,20 +211,20 @@ internal class JBMEncoder
 			output.Write(buf);
 			return;
 		}
-		
+
 		output.Write(numStr);
 	}
 
 	private static bool TryWriteIntegerNumber(ReadOnlySpan<char> num, Stream output)
 	{
-		if (num.Contains('.'))
+		if (num.ContainsAny(Dot))
 		{
 			return false;
 		}
 
 		var numNeg = num.StartsWith("-");
 		var posNum = numNeg ? num[1..] : num;
-		
+
 		if (ulong.TryParse(posNum, NumberStyles.None, CultureInfo.InvariantCulture, out var integerVal))
 		{
 			switch (integerVal)
@@ -280,11 +306,12 @@ internal class JBMEncoder
 
 			return true;
 		}
-		
+
 		return false;
 	}
 
-	private static bool TryGetRoundtripSaveFloat<T>(ReadOnlySpan<char> num, [MaybeNullWhen(false)] out T val) 
+	private static bool TryGetRoundtripSaveFloat<T>(ReadOnlySpan<char> num, string format,
+		[MaybeNullWhen(false)] out T val)
 		where T : IFloatingPoint<T>
 	{
 		if (!T.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out val))
@@ -292,9 +319,11 @@ internal class JBMEncoder
 			return false;
 		}
 
-		return num.Equals(val.ToString(null, CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+		var roundtripped = val.ToString(format, CultureInfo.InvariantCulture);
+
+		return num.Equals(roundtripped, StringComparison.OrdinalIgnoreCase);
 	}
-	
+
 	private static bool TryWriteRleNum(Span<byte> data, BigInteger bi, out int written)
 	{
 		Debug.Assert(bi >= 0);
@@ -323,17 +352,25 @@ internal class JBMEncoder
 
 	public bool TryWriteNumberFromDict(string num)
 	{
-		if (options.UseDict == UseDict.Off || !dict.TryGetNumber(num, out var entry))
+		if (_options.UseDict == UseDict.Off || !_dict.TryGetNumber(num, out var entry))
+		{
 			return false;
+		}
+
 		if (entry.IsIndexed)
-			output.WriteByte((byte)(0x80 | entry.Index));
+		{
+			Output.WriteByte((byte)(0x80 | entry.Index));
+		}
 		else
-			output.Write(entry.Data);
+		{
+			Output.Write(entry.Data);
+		}
+
 		return true;
 	}
 
 	private static byte GetWithNegativeFlag(JBMType t, bool n) => n ? (byte)((int)t | 1) : (byte)t;
-	
+
 	private static byte GetWithFloatFlags(JBMType t, bool tail0, bool upper)
 		=> (byte)((byte)t | (tail0 ? 2 : 0) | (upper ? 1 : 0));
 
@@ -347,17 +384,32 @@ internal class JBMEncoder
 		// 14    : 'E'
 		// 15    : END
 
+#if NET9_0_OR_GREATER
+		var neg = num.StartsWith('-');
+#else
 		var neg = num.StartsWith("-");
-		if (neg) num = num[1..];
+#endif
+		if (neg)
+		{
+			num = num[1..];
+		}
 
 		if (num is ['0', '.', '0'])
+		{
 			return [(byte)((byte)JBMType.NumStr | 4 | 2 | (neg ? 1 : 0))];
+		}
 
 		var lead0 = num.StartsWith("0.", StringComparison.Ordinal);
-		if (lead0) num = num[2..];
+		if (lead0)
+		{
+			num = num[2..];
+		}
 
 		var tail0 = num.EndsWith(".0", StringComparison.Ordinal);
-		if (tail0) num = num[..^2];
+		if (tail0)
+		{
+			num = num[..^2];
+		}
 
 		var buf = new byte[1 + num.Length / 2 + 1];
 		buf[0] = (byte)((byte)JBMType.NumStr | (lead0 ? 4 : 0) | (tail0 ? 2 : 0) | (neg ? 1 : 0));
@@ -389,22 +441,29 @@ internal class JBMEncoder
 			};
 
 			if (firstNibble)
+			{
 				buildByte = nibble;
+			}
 			else
 			{
 				buildByte = (byte)(buildByte << 4 | nibble);
 				buf[bufPos++] = buildByte;
 			}
+
 			firstNibble = !firstNibble;
 		}
 
 		if (firstNibble)
+		{
 			buf[bufPos] = 0xFF;
+		}
 		else
+		{
 			buf[bufPos] = (byte)(buildByte << 4 | 0x0F);
+		}
 
 		return buf;
 	}
 
-	public void WriteNull() => output.WriteByte((byte)JBMType.Null);
+	public void WriteNull() => Output.WriteByte((byte)JBMType.Null);
 }

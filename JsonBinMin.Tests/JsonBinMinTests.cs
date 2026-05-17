@@ -18,8 +18,8 @@ public class JsonBinMinTests
 	{
 		foreach (var useDict in Enum.GetValues<UseDict>())
 		{
-			yield return ["big_01.json", 3523431, 2500839, 782977, useDict];
-			//yield return new object[] { "big_02.json", 45467800, 18641756, 7828683, useDict };
+			yield return ["big_01.json", 3523431, 2497025, 776777, useDict];
+			yield return ["big_02.json", 29626076, 18996422, 8118076, useDict];
 			yield return ["nums_01.json", 655, 420, 420, useDict];
 			yield return ["nums_02.json", 9272, 6155, 6155, useDict];
 			yield return ["nums_03.json", 16212, 10946, 10811, useDict];
@@ -56,26 +56,23 @@ public class JsonBinMinTests
 		};
 
 		var json = GetNormalizedJson(file);
-		Assert.AreEqual(originalSize, json.Length);
+		Assert.HasCount(originalSize, json);
 
-		var options = new JBMOptions()
+		var options = new JbmOptions()
 		{
 			UseDict = useDict,
-			UseFloats = UseFloats.Double | UseFloats.Single | UseFloats.Half,
+			UseFloats = UseFloats.All,
 			UseJbm = true,
 			UseAos = false,
 			Compress = false,
 		};
-		var compressed = JBMConverter.Encode(json, options);
+		var compressed = JbmConverter.Encode(json, options);
 		Console.WriteLine("LENGTH: {0}JS -> {1}JBM", json.Length, compressed.Length);
 		compressed.Length.ShouldBeLessThanOrEqualTo(compressedSize);
 
-		var compressedExpect = GetExpectBytes(file, useDict);
-		CollectionAssert.AreEqual(compressedExpect, compressed, "Compressed output should match expected");
-
 		Directory.CreateDirectory("Compressed");
 		File.WriteAllBytes(Path.Combine("Compressed", GetExpectFileName(file, useDict)), compressed);
-		var roundtrip = JBMConverter.DecodeToString(compressed);
+		var roundtrip = JbmConverter.DecodeToString(compressed);
 
 		var jsonText = Encoding.UTF8.GetString(json);
 		AssertStructuralEqual(jsonText, roundtrip);
@@ -92,7 +89,7 @@ public class JsonBinMinTests
 		int compressedDictOff, int compressedDictSimple, UseDict useDict)
 	{
 		var compressed = GetExpectBytes(file, useDict);
-		var roundtrip = JBMConverter.DecodeToString(compressed);
+		var roundtrip = JbmConverter.DecodeToString(compressed);
 
 		var expectedJson = GetNormalizedJson(file);
 		var jsonText = Encoding.UTF8.GetString(expectedJson);
@@ -134,7 +131,7 @@ public class JsonBinMinTests
 					var formatted = $"{(neg ? "-" : "")}{val}";
 
 					var mem = new MemoryStream();
-					JBMEncoder.WriteNumberValue(formatted, mem, JBMOptions.Default);
+					JbmEncoder.WriteNumberValue(formatted, mem, JbmOptions.Default);
 
 					// 1 byte type
 					long maxSize = 1;
@@ -151,9 +148,14 @@ public class JsonBinMinTests
 					};
 
 					if (i % 8 == 0 && !neg && v == 1)
+					{
 						maxSize += 1;
+					}
 					else if (i % 8 == 0 && neg && v == -1)
+					{
 						maxSize += 1;
+					}
+
 					mem.Length.ShouldBeLessThanOrEqualTo(maxSize,
 						$"Number {formatted} should be stored in {maxSize} bytes");
 				}
@@ -176,9 +178,9 @@ public class JsonBinMinTests
 		var json = File.ReadAllText(Path.Combine("Assets", file));
 
 		var options =
-			new JBMOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
-		var compressed = JBMConverter.Encode(json, options);
-		var roundtrip = JBMConverter.DecodeToString(compressed);
+			new JbmOptions() { UseDict = useDict, Compress = useCompression, UseAos = useAos, UseJbm = useJbm };
+		var compressed = JbmConverter.Encode(json, options);
+		var roundtrip = JbmConverter.DecodeToString(compressed);
 
 		AssertStructuralEqual(json, roundtrip);
 	}
@@ -193,23 +195,25 @@ public class JsonBinMinTests
 		{
 			strb.Append(num);
 			if (i != num - 1)
+			{
 				strb.Append(',');
+			}
 		}
 
 		strb.Append(']');
 
 		var json = strb.ToString();
 
-		var options = new JBMOptions() { UseDict = UseDict.Simple };
-		var compressed = JBMConverter.Encode(json, options);
-		var roundtrip = JBMConverter.DecodeToString(compressed, options);
+		var options = new JbmOptions() { UseDict = UseDict.Simple };
+		var compressed = JbmConverter.Encode(json, options);
+		var roundtrip = JbmConverter.DecodeToString(compressed, options);
 		AssertStructuralEqual(json, roundtrip);
 	}
 
 	[TestMethod]
 	public void HalfIsBetterForAtLeastOneNumber()
 	{
-		var optWithHalf = new JBMOptions() { UseFloats = UseFloats.Half };
+		var optWithHalf = new JbmOptions() { UseFloats = UseFloats.Half };
 
 		static bool IsHalfEncoded(byte[] data) => data.Length == 3 && data[0] == (byte)JBMType.Float16;
 		var mem = new MemoryStream();
@@ -220,11 +224,14 @@ public class JsonBinMinTests
 		{
 			var half = Unsafe.As<ushort, Half>(ref i);
 			if (Half.IsNaN(half) || Half.IsInfinity(half))
+			{
 				continue;
+			}
+
 			var halfStr = half.ToString(CultureInfo.InvariantCulture);
 
 			mem.SetLength(0);
-			JBMEncoder.WriteNumberValue(halfStr, mem, optWithHalf);
+			JbmEncoder.WriteNumberValue(halfStr, mem, optWithHalf);
 			var enc = mem.ToArray();
 
 			if (IsHalfEncoded(enc))

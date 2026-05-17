@@ -15,7 +15,9 @@ internal static class Util
 	public static void Assert(bool assure)
 	{
 		if (!assure)
+		{
 			Trace.Fail("Invariant error");
+		}
 	}
 
 	public static JsonObject GetOrCreate(JsonObject obj, JsonPointer ptr)
@@ -50,12 +52,16 @@ internal static class Util
 	public static bool IsPrefixOf(this JsonPointer self, JsonPointer subKey)
 	{
 		if (subKey.SegmentCount >= self.SegmentCount)
+		{
 			return false;
+		}
 
 		for (var i = 0; i < subKey.SegmentCount; i++)
 		{
 			if (subKey[i] != self[i])
+			{
 				return false;
+			}
 		}
 
 		return true;

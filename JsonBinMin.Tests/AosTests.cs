@@ -42,7 +42,7 @@ public class AosTests
 	[TestMethod, DynamicData(nameof(TestFiles))]
 	public void AosRoundtrip(string file, string? aosFile)
 	{
-		var opt = new JBMOptions()
+		var opt = new JbmOptions()
 		{
 			AosMinArraySize = 2,
 			AosMinSparseFraction = 4,

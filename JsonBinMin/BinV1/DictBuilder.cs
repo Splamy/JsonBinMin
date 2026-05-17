@@ -1,15 +1,16 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace JsonBinMin.BinV1;
 
-internal class DictBuilder(JBMOptions options)
+internal class DictBuilder(JbmOptions options)
 {
-	private readonly MemoryStream mem = new();
-	private readonly Dictionary<string, DictEntry> buildDictNum = [];
-	private readonly Dictionary<string, DictEntry> buildDictStr = [];
+	private readonly MemoryStream _mem = new();
+	private readonly Dictionary<string, DictEntry> _buildDictNum = [];
+	private readonly Dictionary<string, DictEntry> _buildDictStr = [];
 
 	public bool IsFinalized { get; private set; } = false;
 
@@ -21,91 +22,108 @@ internal class DictBuilder(JBMOptions options)
 
 		switch (elem.ValueKind)
 		{
-		case JsonValueKind.Object:
-			var propCount = 0;
-			foreach (var kvp in elem.EnumerateObject())
-			{
-				AddStringToDict(kvp.Name);
-				BuildDictionary(kvp.Value);
-				propCount++;
-			}
+			case JsonValueKind.Object:
+				var propCount = 0;
+				foreach (var kvp in elem.EnumerateObject())
+				{
+					AddStringToDict(kvp.Name);
+					BuildDictionary(kvp.Value);
+					propCount++;
+				}
 
-			AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
-			break;
+				AddNumberToDict(propCount.ToString(CultureInfo.InvariantCulture));
+				break;
 
-		case JsonValueKind.Array:
-			var arrCount = 0;
-			foreach (var arrItem in elem.EnumerateArray())
-			{
-				BuildDictionary(arrItem);
-				arrCount++;
-			}
+			case JsonValueKind.Array:
+				var arrCount = 0;
+				foreach (var arrItem in elem.EnumerateArray())
+				{
+					BuildDictionary(arrItem);
+					arrCount++;
+				}
 
-			AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
-			break;
+				AddNumberToDict(arrCount.ToString(CultureInfo.InvariantCulture));
+				break;
 
-		case JsonValueKind.String:
-			AddStringToDict(elem.GetString());
-			break;
+			case JsonValueKind.String:
+				AddStringToDict(elem.GetString());
+				break;
 
-		case JsonValueKind.Number:
-			AddNumberToDict(elem.GetRawText());
-			break;
-
-		default:
-			break;
+			case JsonValueKind.Number:
+				AddNumberToDict(elem.GetRawText());
+				break;
 		}
 	}
 
 	private void AddNumberToDict(string num)
 	{
-		if (byte.TryParse(num, out var byteValue) && byteValue is >= 0 and <= 0x1F)
-			return;
-
-		if (!buildDictNum.TryGetValue(num, out var de))
+		if (num.Length <= 3 && byte.TryParse(num, out var byteValue) && byteValue is >= 0 and <= 0x1F)
 		{
-			mem.SetLength(0);
-			JBMEncoder.WriteNumberValue(num, mem, options);
-			var binary = mem.ToArray();
-
-			buildDictNum[num] = de = new DictEntry(binary);
+			return;
 		}
-		de.Count++;
+
+		ref var de = ref CollectionsMarshal.GetValueRefOrAddDefault(_buildDictNum, num, out var exists);
+		
+		if (exists)
+		{
+			de.Count++;
+		}
+		else
+		{
+			_mem.SetLength(0);
+			JbmEncoder.WriteNumberValue(num, _mem, options);
+			de.Count = 1;
+			de.Index = byte.MaxValue;
+			de.Data = _mem.ToArray();
+		}
 	}
 
 	private void AddStringToDict(string? str)
 	{
-		if (string.IsNullOrEmpty(str)) return;
+		if (string.IsNullOrEmpty(str))
+		{
+			return;
+		}
 
 		AddNumberToDict(str.Length.ToString(CultureInfo.InvariantCulture));
 
-		if (!buildDictStr.TryGetValue(str, out var de))
+		
+		ref var de = ref CollectionsMarshal.GetValueRefOrAddDefault(_buildDictNum, str, out var exists);
+		if (exists)
 		{
-			mem.SetLength(0);
-			JBMEncoder.WriteStringValue(str, mem, options);
-			var binary = mem.ToArray();
-
-			buildDictStr[str] = de = new DictEntry(binary);
+			de.Count++;
 		}
-		de.Count++;
+		else
+		{
+			_mem.SetLength(0);
+			JbmEncoder.WriteStringValue(str, _mem, options);
+			de.Count = 1;
+			de.Index = byte.MaxValue;
+			de.Data = _mem.ToArray();
+		}
 	}
 
 	[Conditional("DEBUG")]
 	private void CheckNotFinalized()
 	{
 		if (IsFinalized)
+		{
 			throw new InvalidOperationException();
+		}
 	}
 
 	public void FinalizeDictionary()
 	{
 		if (IsFinalized)
+		{
 			return;
+		}
+
 		IsFinalized = true;
 
 		var dictValues = Enumerable.Empty<(string Key, DictEntry Entry, DictElemKind Kind)>()
-			.Concat(buildDictNum.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.Number)))
-			.Concat(buildDictStr.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.String)))
+			.Concat(_buildDictNum.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.Number)))
+			.Concat(_buildDictStr.Select(x => (x.Key, Entry: x.Value, Kind: DictElemKind.String)))
 			.Where(x => x.Entry.Count * x.Entry.Data.Length > x.Entry.Count + x.Entry.Data.Length)
 			.OrderByDescending(x => x.Entry.Count * x.Entry.Data.Length)
 			.Take(0x7F)
@@ -119,38 +137,40 @@ internal class DictBuilder(JBMOptions options)
 			return;
 		}
 
-		mem.SetLength(0);
-		mem.WriteByte((byte)JBMType.MetaDictDef);
+		_mem.SetLength(0);
+		_mem.WriteByte((byte)JBMType.MetaDictDef);
 		Trace.Assert(dictValues.Length <= 0x7f);
-		JBMEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), mem, options);
+		JbmEncoder.WriteNumberValue(dictValues.Length.ToString(CultureInfo.InvariantCulture), _mem, options);
 
 		for (var i = 0; i < dictValues.Length; i++)
 		{
-			var entry = dictValues[i];
-			entry.Index = i;
-			mem.Write(entry.Data);
+			ref var entry = ref dictValues[i];
+			entry.Index = (byte)i;
+			_mem.Write(entry.Data);
 		}
 
-		DictSerialized = mem.ToArray();
+		DictSerialized = _mem.ToArray();
 	}
 
 	[Conditional("DEBUG")]
 	private void CheckFinalized()
 	{
 		if (!IsFinalized)
+		{
 			throw new InvalidOperationException();
+		}
 	}
 
 	public bool TryGetString(string key, [MaybeNullWhen(false)] out DictEntry entry)
 	{
 		CheckFinalized();
-		return buildDictStr.TryGetValue(key, out entry);
+		return _buildDictStr.TryGetValue(key, out entry);
 	}
 
 	public bool TryGetNumber(string key, [MaybeNullWhen(false)] out DictEntry entry)
 	{
 		CheckFinalized();
-		return buildDictNum.TryGetValue(key, out entry);
+		return _buildDictNum.TryGetValue(key, out entry);
 	}
 
 	internal enum DictElemKind
@@ -161,10 +181,11 @@ internal class DictBuilder(JBMOptions options)
 }
 
 [DebuggerDisplay("{Count, nq} @{Index, nq}")]
-internal class DictEntry(byte[] data)
+[StructLayout(LayoutKind.Auto)]
+internal struct DictEntry
 {
-	public byte[] Data { get; set; } = data;
-	public int Count { get; set; } = 0;
-	public int Index { get; set; } = -1;
-	public bool IsIndexed => Index >= 0;
+	public byte[] Data;
+	public int Count;
+	public byte Index;
+	public bool IsIndexed => Index != byte.MaxValue;
 }

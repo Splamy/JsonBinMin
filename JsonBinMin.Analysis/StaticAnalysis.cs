@@ -9,7 +9,7 @@ internal class StaticAnalysis
 {
 	private static readonly JBMType[] TypeMap;
 
-	private static readonly JBMOptions jbmOptions = new()
+	private static readonly JbmOptions jbmOptions = new()
 	{
 		Compress = false,
 		UseDict = UseDict.Off,
@@ -103,7 +103,7 @@ internal class StaticAnalysis
 		var result = new List<SliceResult>();
 		var mem = new MemoryStream(new byte[128], 0, 128, true, true);
 
-		JBMEncoder.WriteNumberValue(from.ToString(CultureInfo.InvariantCulture), mem, jbmOptions);
+		JbmEncoder.WriteNumberValue(from.ToString(CultureInfo.InvariantCulture), mem, jbmOptions);
 		JBMType bucketType = TypeMap[mem.GetBuffer()[0]];
 
 		long bucketStart = from;
@@ -116,7 +116,7 @@ internal class StaticAnalysis
 			{
 				continue;
 			}
-			JBMEncoder.WriteNumberValue(f.ToString(CultureInfo.InvariantCulture), mem, jbmOptions);
+			JbmEncoder.WriteNumberValue(f.ToString(CultureInfo.InvariantCulture), mem, jbmOptions);
 			var type = TypeMap[mem.GetBuffer()[0]];
 
 			if (bucketType != type)

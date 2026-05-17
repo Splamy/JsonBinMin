@@ -8,7 +8,7 @@ namespace JsonBinMin.Aos;
 
 public static class AosConverter
 {
-	public static void FindCompressibleArrays(AosData<JsonArray> aosData, JsonNode node, JsonObject? parent, string key, JBMOptions options)
+	public static void FindCompressibleArrays(AosData<JsonArray> aosData, JsonNode node, JsonObject? parent, string key, JbmOptions options)
 	{
 		if (node is JsonArray arr)
 		{
@@ -160,7 +160,7 @@ public static class AosConverter
 		public bool HasNum;
 	}
 
-	public static JsonArray? EncodeArray(AosData<JsonArray> aosData, JsonArray array, JBMOptions options)
+	public static JsonArray? EncodeArray(AosData<JsonArray> aosData, JsonArray array, JbmOptions options)
 	{
 		// Must be an array of objects
 		if (!array.All(x => x is JsonObject))
@@ -279,7 +279,7 @@ public static class AosConverter
 	}
 
 
-	public static JsonNode? Encode(JsonNode? node, JBMOptions options)
+	public static JsonNode? Encode(JsonNode? node, JbmOptions options)
 	{
 		if (node is null)
 		{
@@ -300,7 +300,7 @@ public static class AosConverter
 		return JsonSerializer.SerializeToNode(aos)!;
 	}
 
-	public static JsonNode Decode(AosData<JsonElement> aosDeser, JBMOptions options)
+	public static JsonNode Decode(AosData<JsonElement> aosDeser, JbmOptions options)
 	{
 		foreach (var aosArr in aosDeser.Aos)
 		{
